@@ -42,14 +42,14 @@ def df2fasta(df: pd.DataFrame):
 
 def error_correct(df: pd.DataFrame,
                   delta_r: np.float32 = 1,
-                  remove_singletons: bool = True
-                  ) -> Tuple[np.ndarray, np.ndarray]:
+                  delta_a: np.float32 = 1) -> Tuple[np.ndarray, np.ndarray]:
     """correct errors by clustering with sparse distance computations
 
     df: DataFrame as returned by fasta_parse
     delta_r: marginal Hamming distance tolerance per decade in log ratio
              abundances
-    remove_singletons: remove remaining singletons
+    delta_a: marginal abundance tolerance of clusterable sequences per decade
+             in log ratio abundances (default 1)
     """
     df = df.sort_values(by=['V primer', 'C primer', 'length', 'abundance'],
                         ascending=(True, True, False,
@@ -61,6 +61,8 @@ def error_correct(df: pd.DataFrame,
     n_clustered = 0
 
     for ct, i in enumerate(parent_idxs, 1):
+        if df.abundance.values[i] == 0:
+            continue
         block_idxs = np.where(np.logical_and(
                               df.length.values == df.length.values[i],
                               df['V primer'].values
@@ -69,12 +71,13 @@ def error_correct(df: pd.DataFrame,
             if j == i:
                 break
             if (df.abundance.values[i] == df.abundance.values[j]
-                    or df.abundance.values[i] == 0
                     or df.abundance.values[j] == 0):
                 continue
             abundance_log_ratio = (np.log10(df.abundance.values[i])
                                    - np.log10(df.abundance.values[j]))
             if 1 / abundance_log_ratio > delta_r:
+                break
+            if df.abundance.values[j] / abundance_log_ratio > delta_a:
                 break
             d = hamming_distance(df.sequence.values[i], df.sequence.values[j])
             if d / abundance_log_ratio <= delta_r:
@@ -84,11 +87,6 @@ def error_correct(df: pd.DataFrame,
         print(f'{ct / len(parent_idxs):.2%}, corrected {n_clustered}',
               end='    \r', flush=True, file=sys.stderr)
     print(file=sys.stderr)
-
-    if remove_singletons:
-        df = df[df.abundance > 1]
-    else:
-        df = df[df.abundance > 0]
 
     return df
 
@@ -103,15 +101,28 @@ def main():
     parser.add_argument('--delta_r', type=float, default=1,
                         help='marginal Hamming distance tolerance per decade '
                              'in log ratio abundances (default 1)')
-    parser.add_argument('--passes', type=int, default=3,
+    parser.add_argument('--delta_a', type=float, default=1,
+                        help='marginal abundance tolerance of clusterable '
+                             'sequences per decade in log ratio abundances '
+                             '(default 1)')
+    parser.add_argument('--passes', type=int, default=1,
                         help='number of times to repeat greedy clustering '
-                             '(default 3)')
+                             '(default 1)')
+    parser.add_argument('--keep_singletons', action='store_true',
+                        help="don't discard uncorrected singletons")
     args = parser.parse_args()
 
     df = fasta_parse(args.fasta)
+
     for this_pass in range(1, args.passes + 1):
-        print(f'pass {this_pass}', file=sys.stderr)
-        df = error_correct(df, delta_r=1)
+        if args.passes > 1:
+            print(f'pass {this_pass}', file=sys.stderr)
+        df = error_correct(df, delta_r=args.delta_r, delta_a=args.delta_a)
+
+    if args.keep_singletons:
+        df = df[df.abundance > 0]
+    else:
+        df = df[df.abundance > 1]
 
     df2fasta(df)
 
