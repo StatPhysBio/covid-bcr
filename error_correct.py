@@ -33,7 +33,7 @@ def df2fasta(df: pd.DataFrame):
     try:
         for idx in df.index:
             print(f'>{idx}|CPRIMER={df.loc[idx, "C primer"]}'
-                  f'|VPRIMER={df.loc[idx, "C primer"]}'
+                  f'|VPRIMER={df.loc[idx, "V primer"]}'
                   f'|DUPCOUNT={df.loc[idx, "abundance"]}')
             print(df.loc[idx, 'sequence'])
     except BrokenPipeError:
