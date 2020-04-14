@@ -3,7 +3,7 @@
 from Bio.SeqIO import parse
 import pandas as pd
 import numpy as np
-from typing import Tuple
+from typing import Tuple, TextIO
 from jellyfish import hamming_distance
 import sys
 
@@ -16,26 +16,37 @@ def fasta_parse(fasta: str):
     """
     fasta_dat = []
     for seq in parse(fasta, 'fasta'):
-        cprimer, vprimer, abundance = (x.split('=')[1]
-                                       for x in seq.id.split('|')[1:])
-        fasta_dat.append([str(seq.seq), cprimer, vprimer, int(abundance)])
+        id, cprimer, vprimer, abundance = (x.split('=')[-1]
+                                           for x in seq.id.split('|'))
+        fasta_dat.append([id, str(seq.seq), cprimer, vprimer, int(abundance)])
     df = pd.DataFrame(fasta_dat,
-                      columns=('sequence', 'C primer', 'V primer',
+                      columns=('id', 'sequence', 'C primer', 'V primer',
                                'abundance'))
     df['length'] = df.sequence.str.len()
     return df
 
 
-def df2fasta(df: pd.DataFrame):
-    """print FASTA to stdout from DataFrame as parsed by fasta_parse. FASTA
-    sequence is NOT wrapped to 80 characters. Incrementing integer IDs
+def df2fasta(df: pd.DataFrame, file: TextIO = sys.stdout):
+    """print FASTA to file (default stdout) from DataFrame as parsed by
+    fasta_parse. FASTA sequence is NOT wrapped to 80 characters.
     """
     try:
         for idx in df.index:
-            print(f'>{idx}|CPRIMER={df.loc[idx, "C primer"]}'
+            print(f'>{df.loc[idx, "id"]}|CPRIMER={df.loc[idx, "C primer"]}'
                   f'|VPRIMER={df.loc[idx, "V primer"]}'
-                  f'|DUPCOUNT={df.loc[idx, "abundance"]}')
-            print(df.loc[idx, 'sequence'])
+                  f'|DUPCOUNT={df.loc[idx, "abundance"]}', file=file)
+            print(df.loc[idx, 'sequence'], file=file)
+    except BrokenPipeError:
+        pass
+
+
+def df2parents(df: pd.DataFrame, file: TextIO = sys.stdout):
+    """print two columns: child and parent
+    """
+    try:
+        for idx in df.index:
+            for child in df.loc[idx, 'children']:
+                print(f'{child}\t{df.loc[idx, "id"]}', file=file)
     except BrokenPipeError:
         pass
 
@@ -55,6 +66,8 @@ def error_correct(df: pd.DataFrame,
                         ascending=(True, True, False,
                                    False)).reset_index(drop=True)
     assert len(df['C primer'].unique()) == 1
+
+    df['children'] = [[] for _ in range(len(df))]
 
     parent_idxs = np.where(df.abundance >= 10 ** (1 / delta_r))[0]
 
@@ -82,22 +95,26 @@ def error_correct(df: pd.DataFrame,
             d = hamming_distance(df.sequence.values[i], df.sequence.values[j])
             if d / abundance_log_ratio <= delta_r:
                 df.abundance.values[i] += df.abundance.values[j]
+                df.children.values[i].append(df.id.values[j])
                 df.abundance.values[j] = 0
                 n_clustered += 1
         print(f'{ct / len(parent_idxs):.2%}, corrected {n_clustered}',
               end='    \r', flush=True, file=sys.stderr)
     print(file=sys.stderr)
 
-    return df
+    return df[df.abundance > 0]
 
 
 def main():
     """
     usage: python error_correct.py -h"""
     import argparse
+    import pickle
+
     parser = argparse.ArgumentParser(
         description='FASTA error correction, streams to stdout')
     parser.add_argument('fasta', type=str, help='path to FASTA')
+    parser.add_argument('outbase', type=str, help='basename for output files')
     parser.add_argument('--delta_r', type=float, default=1,
                         help='marginal Hamming distance tolerance per decade '
                              'in log ratio abundances (default 1)')
@@ -119,13 +136,12 @@ def main():
             print(f'pass {this_pass}', file=sys.stderr)
         df = error_correct(df, delta_r=args.delta_r, delta_a=args.delta_a)
 
-    if args.keep_singletons:
-        df = df[df.abundance > 0]
-    else:
+    if not args.keep_singletons:
         df = df[df.abundance > 1]
 
-    df2fasta(df)
-
+    df2fasta(df, file=open(f'{args.outbase}.corrected.fa', 'w'))
+    df2parents(df, file=open(f'{args.outbase}.parents.tsv', 'w'))
+    pickle.dump(df, open(f'{args.outbase}.df.pkl', 'wb'))
 
 if __name__ == '__main__':
     main()
