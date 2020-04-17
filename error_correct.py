@@ -4,7 +4,7 @@ from Bio.SeqIO import parse
 import pandas as pd
 import numpy as np
 from typing import Tuple, TextIO
-from tinyalign import hamming_distance
+from jellyfish import hamming_distance
 import sys
 
 
@@ -130,8 +130,6 @@ def main():
     args = parser.parse_args()
 
     df = fasta_parse(args.fasta)
-
-    print("Args chosen:\nfasta",args.fasta,"\nargs.outbase",args.outbase,"\ndel_r", args.delta_r, "\ndel_a", args.delta_a)
 
     for this_pass in range(1, args.passes + 1):
         if args.passes > 1:
