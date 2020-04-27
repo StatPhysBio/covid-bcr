@@ -120,8 +120,8 @@ def get_shm_indel_stats(ann):
     #gl_gap_positions = find_char(gl_seq_with_gaps, "-")
     #gl_parts = partition_positions(gl_gap_positions)
 
-    dels = qr_gap_positions.count("-")
-    ins = gl_gap_positions.count("-")
+    dels = qr_seq_with_gaps.count("-")
+    ins = gl_seq_with_gaps.count("-")
     return dels, ins
 
 def partition_positions(positions):
@@ -157,7 +157,7 @@ def fill_dict(s_dict, ann, uid):
     add_item_to_key(s_dict['d gene'], d_gene, [uid])
 
     #  CDR3 statistics
-    add_item_to_key(s_dict['cdr3 length'], ann['junc_length'], [uid])
+    add_item_to_key(s_dict['cdr3 length'], ann['junc_len'], [uid])
     s_dict['cdr3'][uid] = ann['junc_nt']
     s_dict['cdr3 aa'][uid] = ann['junc_aa']
 
@@ -166,7 +166,7 @@ def fill_dict(s_dict, ann, uid):
     dj_ins = ann['junc_nt_breakdown']['n2_nt']
     for key in s_dict['vd_mono_freq'].keys():
         s_dict['vd_mono_freq'][key][uid] = vd_ins.count(key)
-        s_dict['dj_mono_freq'][key][uid] = dj.count(key)
+        s_dict['dj_mono_freq'][key][uid] = dj_ins.count(key)
 
     #  Insertion statistics
     add_item_to_key(s_dict['vd ins'], len(vd_ins), [uid])
@@ -224,7 +224,7 @@ def get_stats(s_dict, annotations):
 def create_stats_file(in_file):
     file_name = in_file.split("/")[-1]
     patient = file_name.split("_")[0]
-    save_dir = in_file.replace(filename, "")
+    save_dir = in_file.replace(file_name, "")
     save_name = save_dir + patient + "_stats.pickle"
     print("\nBegin unpickling" + in_file)
     full_annotations = unpickle(in_file)
