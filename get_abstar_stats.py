@@ -205,13 +205,13 @@ def get_stats(s_dict, annotations):
             bad_n += 1
             continue
 
-        in_frame = ann['junction_in_frame']
+        in_frame = (ann['junction_in_frame'] == 'yes')
         if in_frame:
             frame_key = 'in frame'
         else:
             frame_key = 'out of frame'
 
-        has_shm = (ann['gapped_vdj_nt'] == ann['vdj_nt']) or (ann['gapped_vdj_germ_nt'] == ann['vdj_germ_nt'])
+        has_shm = (ann['gapped_vdj_nt'] != ann['vdj_nt']) or (ann['gapped_vdj_germ_nt'] != ann['vdj_germ_nt'])
         if has_shm:
             frame_key += ' indels'
         else:
