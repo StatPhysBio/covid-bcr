@@ -73,7 +73,7 @@ def make_fastas_for_trees(lineage, ranking, patient, partis, abstar, outdir):
     save_name = "patient-" + patient + "_lineage-" + str(ranking)
 
     consensus_save_name = save_name + "_consensus_sequence.fasta"
-    create_new_fasta(join(outdir, consensus_save_name), consensus_header, consensus_sequence)
+    create_new_fasta(join(outdir, consensus_save_name), consensus_header, consensus_seq)
 
     if partis:
         #  Check that input sequences are all the same length as consensus sequence
