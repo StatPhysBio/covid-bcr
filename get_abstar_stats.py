@@ -211,7 +211,7 @@ def get_stats(s_dict, annotations):
         else:
             frame_key = 'out of frame'
 
-        has_shm = (ann['gapped_vdj_nt'] == ann['vdj_nt'])
+        has_shm = (ann['gapped_vdj_nt'] == ann['vdj_nt']) or (ann['gapped_vdj_germ_nt'] == ann['vdj_germ_nt'])
         if has_shm:
             frame_key += ' indels'
         else:
