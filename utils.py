@@ -4,6 +4,7 @@ from os.path import isfile, join, isdir
 import numpy as np
 from collections import Counter, OrderedDict
 from operator import itemgetter
+from jellyfish import hamming_distance
 
 CONST_DATA_DICT = {2:{"samples":['4'],
                        "times":['6'],
@@ -191,6 +192,12 @@ def get_n_at_beginning(n_list):
             beginning_buffer.append(i)
     return beginning_buffer
 
+def get_num_n_at_start_and_end(seq):
+    n_locs = find_char(seq, "N")
+    num_start = len(get_n_at_beginning(n_locs))
+    num_end = len(get_n_at_end(n_locs, len(seq)))
+    return num_start, num_end
+
 def remove_N_buffer(seq):
     n_locs = find_char(seq, "N")
     beg_n = get_n_at_beginning(n_locs)
@@ -203,6 +210,11 @@ def remove_N_buffer(seq):
     if end_n:
         upper_bound = np.min(end_n)
     return seq[lower_bound:upper_bound]
+
+def fix_N_padding(seq_to_fix, new_num_n_start, new_num_n_end):
+    seq_no_pad = remove_N_buffer(seq_to_fix)
+    fixed_seq = "".join("N"*new_num_n_start)+seq_no_pad + "".join("N"*new_num_n_end)
+    return fixed_seq
 
 def translate(seq):
 
