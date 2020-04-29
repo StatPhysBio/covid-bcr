@@ -28,6 +28,36 @@ CONST_DATA_DICT = {2:{"samples":['4'],
                        "times":['30'],
                        "severity":"ICU"}}
 
+partis_v_genes = ['IGHV1-18', 'IGHV1-2', 'IGHV1-24', 'IGHV1-3',
+                  'IGHV1-46', 'IGHV1-58', 'IGHV1-69', 'IGHV1-8',
+                  'IGHV2-26', 'IGHV2-5', 'IGHV2-70', 'IGHV3-11',
+                  'IGHV3-13', 'IGHV3-15', 'IGHV3-20', 'IGHV3-21',
+                  'IGHV3-23', 'IGHV3-30', 'IGHV3-30-3', 'IGHV3-33',
+                  'IGHV3-43', 'IGHV3-48', 'IGHV3-49', 'IGHV3-53',
+                  'IGHV3-64', 'IGHV3-66', 'IGHV3-7', 'IGHV3-72',
+                  'IGHV3-73', 'IGHV3-74', 'IGHV3-9', 'IGHV4-30-2',
+                  'IGHV4-30-4', 'IGHV4-31', 'IGHV4-34', 'IGHV4-38-2',
+                  'IGHV4-39', 'IGHV4-4', 'IGHV4-59', 'IGHV4-61',
+                  'IGHV5-10-1', 'IGHV5-51', 'IGHV6-1', 'IGHV7-4-1']
+
+partis_j_genes = ['IGHJ1', 'IGHJ2', 'IGHJ3', 'IGHJ4', 'IGHJ5', 'IGHJ6']
+
+abstar_v_genes = ['IGHV1-18', 'IGHV1-2', 'IGHV1-24', 'IGHV1-3',
+                  'IGHV1-45', 'IGHV1-46', 'IGHV1-58', 'IGHV1-69',
+                  'IGHV1-69-2', 'IGHV1-8', 'IGHV2-26', 'IGHV2-5',
+                  'IGHV2-70', 'IGHV2-70D', 'IGHV3-11', 'IGHV3-13',
+                  'IGHV3-15', 'IGHV3-20', 'IGHV3-21', 'IGHV3-23',
+                  'IGHV3-30', 'IGHV3-30-3', 'IGHV3-33', 'IGHV3-43',
+                  'IGHV3-43D', 'IGHV3-48', 'IGHV3-49', 'IGHV3-53',
+                  'IGHV3-64', 'IGHV3-64D', 'IGHV3-66', 'IGHV3-7',
+                  'IGHV3-72', 'IGHV3-73', 'IGHV3-74', 'IGHV3-9',
+                  'IGHV3-NL1', 'IGHV4-28', 'IGHV4-30-2', 'IGHV4-30-4',
+                  'IGHV4-31', 'IGHV4-34', 'IGHV4-38-2', 'IGHV4-39',
+                  'IGHV4-4', 'IGHV4-59', 'IGHV4-61', 'IGHV5-10-1',
+                  'IGHV5-51', 'IGHV6-1', 'IGHV7-4-1']
+
+abstar_j_genes = ['IGHJ1', 'IGHJ2', 'IGHJ3', 'IGHJ4', 'IGHJ5', 'IGHJ6']
+
 def fasta_parse(fasta: str, patient, timepoint, severity, singletons=True):
     seqs = []
     headers = []
@@ -88,7 +118,7 @@ def add_item_to_key(d, key, item):
         d[key] = item
 
 def update_dictionary(d, temp_d):
-    for key in list(temp_d.keys()):
+    for key in temp_d:
         if key in d:
             d[key] += temp_d[key]
         else:
@@ -121,15 +151,21 @@ def equalize_counters(counter_list):
             if key not in c:
                 c[key] = 0
 
+def normalize_counter(data_counter):
+    normalization = get_total_counts(data_counter)
+    for key in data_counter:
+        data_counter[key] /= normalization
+    return data_counter
+
 def get_total_counts(data_counter):
     return sum(data_counter.values())
 
-def split_dict_by_time(in_dict):
+def split_dict_by_time(in_dict, time_threshold=None):
     time_dicts = {}
-    dict_early_time = {}
-    dict_late_time = {}
-    early_times = []
-    late_times = []
+    time_el_dict = {"data": {"early":{},
+                             "late": {}},
+                    "times":{"early": [],
+                             "late": []}}
     for key in in_dict:
         for item in in_dict[key]:
             time = get_time(item)
@@ -138,6 +174,15 @@ def split_dict_by_time(in_dict):
             if key not in time_dicts[time]:
                 time_dicts[time][key] = []
             time_dicts[time][key].append(item)
+    if time_threshold != None:
+        for time in time_dicts:
+            if time < time_threshold:
+                time_el_dict['times']['early'].append(time)
+                update_dictionary(time_el_dict['data']['early'], time_dicts[time])
+            else:
+                time_el_dict['times']['late'].append(time)
+                update_dictionary(time_el_dict['data']['late'], time_dicts[time])
+        return time_el_dict
     return time_dicts
 
 def split_dict_by_primer(in_dict):
