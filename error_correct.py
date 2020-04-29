@@ -1,12 +1,18 @@
 from Bio.SeqIO import parse
 import numpy as np
-from typing import Tuple, TextIO
+from typing import List, Tuple, TextIO
 from jellyfish import hamming_distance
 
-def get_abundance(uid):
+def get_cprimer(uid: str) -> str:
+    return uid.split("|")[1].split("=")[-1]
+
+def get_vprimer(uid: str) -> str:
+    return uid.split("|")[2].split("=")[-1]
+
+def get_abundance(uid: str) -> str:
     return int(uid.split("|")[3].split("=")[-1])
 
-def fasta_parse(fasta: str):
+def fasta_parse(fasta: str) -> Tuple[List[str], List[str]]:
     uids = []
     seqs = []
     for seq in parse(fasta, 'fasta'):
@@ -14,23 +20,24 @@ def fasta_parse(fasta: str):
         uids.append(seq.id)
     return uids, seqs
 
-def write_to_fasta(save_name: str, headers, sequences):
+def write_to_fasta(save_name: str, headers: List[str], sequences: List[str]) -> None:
     with open(save_name, "w") as new_fasta:
         for i, header in enumerate(headers):
             new_fasta.write(header + "\n")
             new_fasta.write(sequences[i] + "\n")
 
-def update_uid(uid: str, abundance: int):
+def update_uid(uid: str, abundance: int) -> str:
     uid_split = uid.split("|")
     uid_split[3] = "DUPCOUNT=" + str(abundance)
     updated_uid = "|".join(uid_split)
     return updated_uid
-def error_correct(uids, seqs, d_tol: int = 1, a_tol: np.float32 = None):
+
+def error_correct(uids: List[str], seqs: List[str], d_tol: int = 1, a_tol: np.float32 = None) -> Tuple[List[str], List[str]]:
     if a_tol is None:
         a_tol = 1.0
 
     #  Sort by descending abundance
-    sorted_uids = sorted(uids, key=lambda e: get_abundance(e), reverse=True)
+    sorted_uids = sorted(uids, key=lambda u: get_abundance(u), reverse=True)
     sorted_seqs = [seq
                    for _,seq in sorted(zip(uids,seqs),
                                        key=lambda pair: get_abundance(pair[0]),
@@ -72,6 +79,20 @@ def error_correct(uids, seqs, d_tol: int = 1, a_tol: np.float32 = None):
         updated_uids.append(update_uid(sorted_uids[index], sorted_abundances[index]))
     return updated_uids, remaining_seqs
 
+def group_data(uids: List[str], seqs: List[str]):
+    #  Group by sequence length, c primer, and v primer
+    grouped_data = {}
+    for u,s in zip(uids, seqs):
+        cprimer = get_cprimer(u)
+        vprimer = get_vprimer(u)
+        slen = len(s)
+        key = (slen, cprimer, vprimer)
+        if key not in grouped_data:
+            grouped_data[key] = {'uids': [], 'sequences': []}
+        grouped_data[key]['uids'].append(u)
+        grouped_data[key]['sequences'].append(s)
+    return grouped_data
+
 def main():
     """
     usage: python error_correct.py -h"""
@@ -95,10 +116,25 @@ def main():
     args = parser.parse_args()
 
     uids, seqs = fasta_parse(args.fasta)
-    for this_pass in range(1, args.passes + 1):
-        uids, seqs = error_correct(uids, seqs, args.d_tol, args.a_tol)
+    grouped_data = group_data(uids, seqs)
 
-    write_to_fasta(args.outbase + ".corrected.fa", uids, seqs)
+    for this_pass in range(args.passes):
+        for key in grouped_data:
+            out_uids, out_seqs = error_correct(grouped_data[key]['uids'],
+                                               grouped_data[key]['sequences'],
+                                               args.d_tol, args.a_tol)
+            #  Update dictionary so things don't have to be resorted
+            grouped_data[key]['uids'] = out_uids
+            grouped_data[key]['sequences'] = out_seqs
+
+    #  Combine all uids and sequences
+    out_uids = []
+    out_seqs = []
+    for key in grouped_data:
+        out_uids += grouped_data[key]['uids']
+        out_seqs += grouped_data[key]['sequences']
+
+    write_to_fasta(args.outbase + ".corrected.fa", out_uids, out_seqs)
 
 if __name__ == '__main__':
     main()
