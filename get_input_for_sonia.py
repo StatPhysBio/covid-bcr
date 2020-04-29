@@ -3,6 +3,7 @@ import csv
 
 def abstar_naive_productive(abstar_file):
     sonia_input = []
+    print("Looking at", abstar_file)
     annotations = unpickle(abstar_file)
     for ann in annotations:
         #  Look at naive productive sequences
@@ -29,6 +30,7 @@ def abstar_naive_productive(abstar_file):
 
 def partis_naive_productive(partis_file):
     sonia_input = []
+    print("Looking at", partis_file)
     annotations = unpickle(partis_file)
     for ann in annotations:
         if ann['invalid']:
