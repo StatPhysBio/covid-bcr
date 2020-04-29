@@ -45,22 +45,22 @@ def error_correct(uids, seqs, d_tol: int = 1, a_tol: np.float32 = None):
         for j,seq2 in reversed(list(enumerate(sorted_seqs))):
             if i == j:
                 continue
+
             if sorted_abundances[j] == 0:
                 continue
+
             abundance_ratio = sorted_abundances[i] / sorted_abundances[j]
-            
             if abundance_ratio < a_tol:
-                #print(i, j, sorted_abundances[i], sorted_abundances[j])
                 break
-            ham_dist = hamming_distance(seq1, seq2)
-            if ham_dist < d_tol:
+
+            if hamming_distance(seq1, seq2) <= d_tol:
                 parent_child_dict[(i, seq1)].append((j, seq2))
                 sorted_abundances[i] += sorted_abundances[j]
                 sorted_abundances[j] = 0
 
         if not parent_child_dict[(i, seq1)]:
             del parent_child_dict[(i, seq1)]
-    
+
     #  Get remaining sequences and updated uids
     remaining_seqs = []
     updated_uids = []
