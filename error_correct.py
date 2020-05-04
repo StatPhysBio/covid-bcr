@@ -23,8 +23,7 @@ def fasta_parse(fasta: str) -> Tuple[List[str], List[str]]:
 def write_to_fasta(save_name: str, headers: List[str], sequences: List[str]) -> None:
     with open(save_name, "w") as new_fasta:
         for i, header in enumerate(headers):
-            new_fasta.write(header + "\n")
-            new_fasta.write(sequences[i] + "\n")
+            new_fasta.write(">"+header + "\n" + sequences[i] + "\n")
 
 def update_uid(uid: str, abundance: int) -> str:
     uid_split = uid.split("|")
@@ -32,11 +31,20 @@ def update_uid(uid: str, abundance: int) -> str:
     updated_uid = "|".join(uid_split)
     return updated_uid
 
+def sort_data_by_abundance(uids: List[str], seqs: List[str]) -> Tuple[List[str], List[str]]:
+    sorted_uids = sorted(uids, key=lambda u: get_abundance(u), reverse=True)
+    sorted_seqs = [seq
+                   for _,seq in sorted(zip(uids,seqs),
+                                       key=lambda pair: get_abundance(pair[0]),
+                                       reverse=True)]
+    return sorted_uids, sorted_seqs
+
 def error_correct(uids: List[str], seqs: List[str], d_tol: int = 1, a_tol: np.float32 = None) -> Tuple[List[str], List[str]]:
     if a_tol is None:
         a_tol = 1.0
 
     #  Sort by descending abundance
+    sorted_uids, sorted_seqs = sort_data_by_abundance(uids, seqs)
     sorted_uids = sorted(uids, key=lambda u: get_abundance(u), reverse=True)
     sorted_seqs = [seq
                    for _,seq in sorted(zip(uids,seqs),
@@ -91,6 +99,7 @@ def group_data(uids: List[str], seqs: List[str]):
             grouped_data[key] = {'uids': [], 'sequences': []}
         grouped_data[key]['uids'].append(u)
         grouped_data[key]['sequences'].append(s)
+
     return grouped_data
 
 def main():
@@ -134,7 +143,7 @@ def main():
         out_uids += grouped_data[key]['uids']
         out_seqs += grouped_data[key]['sequences']
 
-    write_to_fasta(args.outbase + ".corrected.fa", out_uids, out_seqs)
+    write_to_fasta(args.outbase + "_corrected.fasta", out_uids, out_seqs)
 
 if __name__ == '__main__':
     main()

@@ -141,7 +141,7 @@ def get_data_counter(data, multiplicity=False):
             data_counter[key] += get_dupcounts(uid)
     return data_counter
 
-def equalize_counters(counter_list):
+def equalize_counters(counter_list, pseudocount):
     all_keys = []
     for c in counter_list:
         all_keys += list(c.keys())
@@ -149,7 +149,7 @@ def equalize_counters(counter_list):
     for c in counter_list:
         for key in all_keys:
             if key not in c:
-                c[key] = 0
+                c[key] = pseudocount
 
 def normalize_counter(data_counter):
     normalization = get_total_counts(data_counter)

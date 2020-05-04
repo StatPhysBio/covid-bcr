@@ -157,7 +157,7 @@ def fill_dict(s_dict, ann, uid):
     add_item_to_key(s_dict['d gene'], d_gene, [uid])
 
     #  CDR3 statistics
-    add_item_to_key(s_dict['cdr3 length'], ann['junc_len'], [uid])
+    add_item_to_key(s_dict['cdr3 length'], len(ann['junc_nt']), [uid])
     s_dict['cdr3'][uid] = ann['junc_nt']
     s_dict['cdr3 aa'][uid] = ann['junc_aa']
 
