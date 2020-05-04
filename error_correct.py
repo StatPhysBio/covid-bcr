@@ -9,8 +9,11 @@ def get_cprimer(uid: str) -> str:
 def get_vprimer(uid: str) -> str:
     return uid.split("|")[2].split("=")[-1]
 
-def get_abundance(uid: str) -> str:
+def get_abundance(uid: str) -> int:
     return int(uid.split("|")[3].split("=")[-1])
+
+def get_time(uid: str) -> int:
+    return int(uid.split("|")[4].split("=")[-1])
 
 def fasta_parse(fasta: str) -> Tuple[List[str], List[str]]:
     uids = []
@@ -93,8 +96,9 @@ def group_data(uids: List[str], seqs: List[str]):
     for u,s in zip(uids, seqs):
         cprimer = get_cprimer(u)
         vprimer = get_vprimer(u)
+        time = get_time(u)
         slen = len(s)
-        key = (slen, cprimer, vprimer)
+        key = (slen, cprimer, vprimer, time)
         if key not in grouped_data:
             grouped_data[key] = {'uids': [], 'sequences': []}
         grouped_data[key]['uids'].append(u)

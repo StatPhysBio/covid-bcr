@@ -202,20 +202,44 @@ def split_dict_by_primer(in_dict):
         del sorted_primer_dict[p]
     return sorted_primer_dict
 
-def get_DUPCOUNT(uid):
-    return
+def convert_header(header):
+    header_split = header.split("_")
+    seq_id = header_split[0]
+    patient_num = header_split[1].split("--")[-1]
+    vprimer = header_split[2].split("--")[-1]
+    time = header_split[3].split("--")[-1]
+    abundance = header_split[4].split("--")[-1]
+    severity = header_split[5].split("--")[-1]
+    return "|".join([seq_id + "-" + patient_num,
+                     'CPRIMER=CHG-R',
+                     'VPRIMER='+vprimer,
+                     'DUPCOUNT='+abundance,
+                     'TIME='+time,
+                     'SEVERITY='+severity])
 
-def get_dupcounts(uid):
-    return int(uid.split("_")[4].replace("dupcounts--",""))
+def get_cprimer(uid: str) -> str:
+    return uid.split("|")[1].split("=")[-1]
 
-def get_time(uid):
-    return int(uid.split("_")[3].replace("time--",""))
+def get_vprimer(uid: str) -> str:
+    return uid.split("|")[2].split("=")[-1]
 
-def get_primer(uid):
-    return uid.split("_")[2].replace("vprimer--","").replace("m", ",")
+def get_abundance(uid: str) -> int:
+    return int(uid.split("|")[3].split("=")[-1])
 
-def get_severity(uid):
-    return uid.split("_")[5].replace("severity--","")
+def get_time(uid: str) -> int:
+    return int(uid.split("|")[4].split("=")[-1])
+
+#def get_dupcounts(uid):
+#    return int(uid.split("_")[4].replace("dupcounts--",""))
+#
+#def get_time(uid):
+#    return int(uid.split("_")[3].replace("time--",""))
+#
+#def get_primer(uid):
+#    return uid.split("_")[2].replace("vprimer--","").replace("m", ",")
+#
+#def get_severity(uid):
+#    return uid.split("_")[5].replace("severity--","")
 
 def find_char(string, c):
     return [pos for pos, char in enumerate(string) if char == c]
