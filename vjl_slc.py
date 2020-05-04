@@ -1,5 +1,7 @@
 from scipy.cluster.hierarchy import linkage,fcluster,dendrogram
 from scipy.spatial.distance import squareform
+import numpy as np
+from jellyfish import hamming_distance
 
 def bin_vjl(anns, partis=None, abstar=None):
     vjl_dict = {}
@@ -75,11 +77,11 @@ def slc_vjl_bin(vjl_bin, partis=None, abstar=None, threshold=None):
     else:
         print("Need an option for the annotation input!")
 
-    if len(seq_map.keys()) < 2:
+    unique_cdr3s = list(seq_map.keys())
+    if len(unique_cdr3s) < 2:
         return {1: seq_map[unique_cdr3s[0]]}
 
     # Create distance matrix
-    unique_cdr3s = list(seq_map.keys())
     dists = ham_dist_mat(unique_cdr3s)
 
     _, clusters = slc_dist_input(dists, threshold)
@@ -93,6 +95,7 @@ def slc_vjl_bin(vjl_bin, partis=None, abstar=None, threshold=None):
     return clone_dict
 
 def slc_all_bins(vjl_dict, partis=None, abstar=None, threshold=None):
+    print(partis)
     lineage_dict = {}
     if not threshold:
         threshold = 0.15
@@ -101,5 +104,5 @@ def slc_all_bins(vjl_dict, partis=None, abstar=None, threshold=None):
     return lineage_dict
 
 def vjl_slc(anns, partis=None, abstar=None, threshold=None):
-    lineages = slc_all_bins(bin_vjl(anns), partis=partis, abstar=abstar, threshold=threshold)
+    lineages = slc_all_bins(bin_vjl(anns, partis=partis, abstar=abstar), partis=partis, abstar=abstar, threshold=threshold)
     return lineages
