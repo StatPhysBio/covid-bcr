@@ -5,6 +5,7 @@ import numpy as np
 from collections import Counter, OrderedDict
 from operator import itemgetter
 from jellyfish import hamming_distance
+import csv
 
 CONST_DATA_DICT = {2:{"samples":['4'],
                        "times":['6'],
@@ -57,6 +58,20 @@ abstar_v_genes = ['IGHV1-18', 'IGHV1-2', 'IGHV1-24', 'IGHV1-3',
                   'IGHV5-51', 'IGHV6-1', 'IGHV7-4-1']
 
 abstar_j_genes = ['IGHJ1', 'IGHJ2', 'IGHJ3', 'IGHJ4', 'IGHJ5', 'IGHJ6']
+
+def csv_to_dict(in_csv_file):
+    csv_dict = {}
+
+    with open(in_csv_file, newline='',encoding='utf-8-sig') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for index,ordered_dict in enumerate(reader):
+            if list(ordered_dict.values())==['']*len(ordered_dict):
+                break
+            for key in ordered_dict.keys():
+                if index == 0:
+                    csv_dict[key]=[]
+                csv_dict[key].append(ordered_dict[key])
+    return csv_dict
 
 def fasta_parse(fasta: str, patient, timepoint, severity, singletons=True):
     seqs = []
