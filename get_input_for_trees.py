@@ -66,7 +66,14 @@ def make_fastas_for_trees(lineage, ranking, patient, partis, abstar, outdir):
 
     #  Get indices of sequence substring which has substrings
     #  before and after cdr3 divisible by 3 (makes tree building easier)
-    start_index, end_index = make_div_by_3(lineage[0])
+    #  Crutical to find a lineage with same length as consensus_sequence
+    for ann in lineage:
+        if len(ann['naive_seq']) == len(consensus_sequence):
+            start_index, end_index = make_div_by_3(ann)
+            #  To be used to fix padding of input seqs.
+            target_length_input_seq = ann['input_seq']
+            target_length = len(target_length_input_seq)
+            break
 
     consensus_seq = [consensus_sequence[start_index:end_index]]
 
@@ -80,11 +87,8 @@ def make_fastas_for_trees(lineage, ranking, patient, partis, abstar, outdir):
         input_seqs = [ann['input_seqs'][0] for ann in lineage]
         input_seq_lengths = list(set([len(seq) for seq in input_seqs]))
         if len(input_seq_lengths) != 1:
-            #  Get an example of sequence with max length for padding
-            target_length = len(consensus_sequence)
-            for seq in input_seqs:
-                if len(seq) == target_length:
-                    target_length_input_seq = seq
+            #  Get padding of input seq that was retrieved earlier
+            #  and is same length as consensus seq
             target_num_n_start, target_num_n_end = get_num_n_at_start_and_end(target_length_input_seq)
             #  Correct sequences with padding of differing length
             for idx, seq in enumerate(input_seqs):
@@ -96,6 +100,7 @@ def make_fastas_for_trees(lineage, ranking, patient, partis, abstar, outdir):
         #  Index the sequence so substrings before and after cdr3 are divisible by 3
         seqs = [ann['input_seqs'][0][start_index:end_index] for ann in lineage]
 
+    # TODO Finish abstar implementation.
     if abstar:
         heads = [ann['seq_id'] for ann in lineage]
         seqs = [ann['raw_input'] for ann in lineage]
@@ -117,7 +122,7 @@ def main():
     #  Sort lineages by size so file name gives some information
     vjls_sorted = sorted(lineages, key=lambda e: len(lineages[e]),reverse=True)
     for i, vjl in enumerate(vjls_sorted):
-        if len(lineages[vjl]) < 20:
+        if len(lineages['productive'][vjl]) < 20:
             continue
         make_fastas_for_trees(lineages[vjl], i, args.patient, args.partis, args.abstar, args.outdir)
 

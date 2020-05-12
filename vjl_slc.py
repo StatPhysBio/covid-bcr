@@ -30,6 +30,20 @@ def bin_vjl(anns, partis=None, abstar=None):
     else:
         print("Need an option for the annotation input!")
 
+def get_coarsegrained_bins(vjl_bins):
+    v_bins = {}
+    vj_bins = {}
+    for vjl in vjl_bins:
+        vj = (vjl[0],vjl[1])
+        v = vjl[0]
+        if v not in v_bins:
+            v_bins[v] = []
+        if vj not in vj_bins:
+            vj_bins[vj] = []
+        vj_bins[vj] += vjl_bins[vjl]
+        v_bins[v] += vjl_bins[vjl]
+    return v_bins, vj_bins
+
 def ham_dist_mat(strings):
     dists = np.zeros((len(strings), len(strings)))
     for i,s1 in enumerate(strings):
@@ -91,7 +105,7 @@ def slc_vjl_bin(vjl_bin, partis=None, abstar=None, threshold=None):
     for i, c in enumerate(clusters):
         clone_dict.setdefault(c, []).extend(seq_map[unique_cdr3s[i]])
 
-    #  Save clutsers to lineage bin
+    #  Save clusters to lineage bin
     return clone_dict
 
 def slc_all_bins(vjl_dict, partis=None, abstar=None, threshold=None):
@@ -99,10 +113,12 @@ def slc_all_bins(vjl_dict, partis=None, abstar=None, threshold=None):
     lineage_dict = {}
     if not threshold:
         threshold = 0.15
+    print(threshold)
     for i,key in enumerate(vjl_dict):
         lineage_dict[key] = slc_vjl_bin(vjl_dict[key], partis=partis, abstar=abstar, threshold=threshold)
     return lineage_dict
 
 def vjl_slc(anns, partis=None, abstar=None, threshold=None):
-    lineages = slc_all_bins(bin_vjl(anns, partis=partis, abstar=abstar), partis=partis, abstar=abstar, threshold=threshold)
+    lineages = slc_all_bins(bin_vjl(anns, partis=partis, abstar=abstar),
+                            partis=partis, abstar=abstar, threshold=threshold)
     return lineages
