@@ -82,7 +82,14 @@ def get_expansion_counts(lineages, patient_key, include_singletons=False, slc=Tr
 
     return primer_split_expansion
 
-def fisher_exact_test(primer_bin, slc=False, time_threshold=18,testtype='two-sided'):
+def fisher_exact_test(in_expansion, slc=False, time_threshold=18, testtype='less'):
+    fisher_output = {}
+    for primer in in_expansion:
+        fisher_output[primer] = fisher_exact_test_by_primer(in_expansion[primer], slc=slc,
+                                                         time_threshold=time_threshold,testtype=testtype)
+    return fisher_output
+
+def fisher_exact_test_by_primer(primer_bin, slc=False, time_threshold=18,testtype='less'):
     #  Get counts
     counts = {}
     if not slc:
@@ -99,6 +106,7 @@ def fisher_exact_test(primer_bin, slc=False, time_threshold=18,testtype='two-sid
                     if int(ti) not in counts:
                         counts[int(ti)] = []
                     counts[int(ti)].append(primer_bin[key][rank][ti])
+
     #  Split into late and early
     fisher_input = {"early":[],"late":[], "other early": [], "other late":[]}
     for i,c in enumerate(counts[list(counts.keys())[0]]):
@@ -127,15 +135,16 @@ def fisher_exact_test(primer_bin, slc=False, time_threshold=18,testtype='two-sid
 
     #  Set 0 to be extremely small number
     #  so it shows up on log pvalue plot
-#    fisher_results['pvalue'] = np.array(fisher_results['pvalue'])
-#    fisher_results['pvalue'][fisher_results['pvalue'] == 0.0] = 1e-300
+    #  fisher_results['pvalue'] = np.array(fisher_results['pvalue'])
+    #  fisher_results['pvalue'][fisher_results['pvalue'] == 0.0] = 1e-340
+    fisher_results['early'] = np.array(fisher_input['early'])
+    fisher_results['late'] = np.array(fisher_input['late'])
+    fisher_results['other early'] = np.array(fisher_input['other early'])
+    fisher_results['other late'] = np.array(fisher_input['other late'])
+    fisher_results['pvalue'] = np.array(fisher_results['pvalue'])
+    fisher_results['oddsratio'] = np.reciprocal(np.array(fisher_results['oddsratio']))
 
-    return (np.array(fisher_input['early']),
-            np.array(fisher_input['late']),
-            np.array(fisher_input['other early']),
-            np.array(fisher_input['other late']),
-            np.array(fisher_results['pvalue']),
-            np.reciprocal(np.array(fisher_results['oddsratio'])))
+    return fisher_results
 
 def get_vjls_and_fet(lineages, patient, timecutoff,slc=False):
     print(slc)
@@ -144,7 +153,7 @@ def get_vjls_and_fet(lineages, patient, timecutoff,slc=False):
 
     for primer in expansion:
         fisher_output[primer] = {}
-        fisher_output[primer]['fet'] =  fisher_exact_test(expansion[primer],
+        fisher_output[primer]['fet'] =  fisher_exact_test_by_primer(expansion[primer],
                                                           time_threshold=timecutoff,
                                                           testtype='less',slc=slc)
         if not slc:
@@ -152,10 +161,10 @@ def get_vjls_and_fet(lineages, patient, timecutoff,slc=False):
         else:
             fisher_output[primer]['vjl'] = [key
                                             for key in expansion[primer].keys()
-                                            for item in expansion[primer][key]]
+                                            for lin_rank in expansion[primer][key]]
             fisher_output[primer]['vjl+rank'] = [key
                                             for key in expansion[primer].keys()
-                                            for item in expansion[primer][key]]
+                                            for lin_rank in expansion[primer][key]]
     return fisher_output
 
 #  For comparison to Oxford database
@@ -166,10 +175,10 @@ def make_csv_file(savename, in_fet_output):
         f.write(col_titles)
         for primer in fet_output:
             for index,lin in enumerate(fet_output[primer]['vjl']):
-                if fet_output[primer]['fet'][0][index] == 0 or fet_output[primer]['fet'][1][index] == 0:
+                if fet_output[primer]['fet']['early'][index] == 0 or fet_output[primer]['fet']['late'][index] == 0:
                     continue
-                fold_expansion = fet_output[primer]['fet'][1][index]/fet_output[primer]['fet'][0][index]
-                oddsratio = fet_output[primer]['fet'][5][index]
+                fold_expansion = fet_output[primer]['fet']['late'][index]/fet_output[primer]['fet']['early'][index]
+                oddsratio = fet_output[primer]['fet']['oddsratio'][index]
                 j, cl, linrank = '','',''
                 if len(lin) > 4:
                     v = lin
@@ -181,7 +190,7 @@ def make_csv_file(savename, in_fet_output):
                     j = lin[1]
                     cl = lin[2]
                 f.write("%s,%s,%s,%.16e,%.16e,%.16e\n"%(v,j,cl,
-                                                        fet_output[primer]['fet'][4][index],
+                                                        fet_output[primer]['fet']['pvalue'][index],
                                                         fold_expansion,
                                                         oddsratio))
 
@@ -213,29 +222,29 @@ def make_csv_file(savename, in_fet_output):
 #                f.write("%s,%s,%s,%d,%d\n"%(k[0],k[1],k[2],time_data[0],time_data[1]))
 #        print("2Wrote",csv_file)
 
-def main():
-    import argparse
-    parser = argparse.ArgumentParser(
-        description='Create csv file for fisher exact test for expansion')
-    parser.add_argument('--lineages', type=str, help='path to lineage file')
-    parser.add_argument('--outdir', type=str, help='path to outfile')
-    parser.add_argument('--patient', type=str, help='patient num')
-    parser.add_argument('--time_threshold', type=int, help='time used to split late and early')
-    parser.add_argument('--singletons', action='store_true', help='include singletons counts')
-    parser.add_argument('--unique', action='store_true', help='use unique counts')
-    parser.add_argument('--abundance', action='store_true', help='use abundance counts')
-    args = parser.parse_args()
-
-    lineages = unpickle(args.lineages)
-    expansion_counts = get_expansion_counts(lineages, args.patient, args.time_threshold, args.singletons)
-
-    if args.unique:
-        for primer in expansion_counts['unique']:
-            create_data_csv(args.outdir, expansion_counts['abundance'][primer],args.patient,'abundance',primer)
-
-    if args.abundance:
-        for primer in expansion_counts['abundance']:
-            create_data_csv(args.outdir, expansion_counts['abundance'][primer],args.patient,'abundance',primer)
-
-if __name__ == '__main__':
-    main()
+#def main():
+#    import argparse
+#    parser = argparse.ArgumentParser(
+#        description='Create csv file for fisher exact test for expansion')
+#    parser.add_argument('--lineages', type=str, help='path to lineage file')
+#    parser.add_argument('--outdir', type=str, help='path to outfile')
+#    parser.add_argument('--patient', type=str, help='patient num')
+#    parser.add_argument('--time_threshold', type=int, help='time used to split late and early')
+#    parser.add_argument('--singletons', action='store_true', help='include singletons counts')
+#    parser.add_argument('--unique', action='store_true', help='use unique counts')
+#    parser.add_argument('--abundance', action='store_true', help='use abundance counts')
+#    args = parser.parse_args()
+#
+#    lineages = unpickle(args.lineages)
+#    expansion_counts = get_expansion_counts(lineages, args.patient, args.time_threshold, args.singletons)
+#
+#    if args.unique:
+#        for primer in expansion_counts['unique']:
+#            create_data_csv(args.outdir, expansion_counts['abundance'][primer],args.patient,'abundance',primer)
+#
+#    if args.abundance:
+#        for primer in expansion_counts['abundance']:
+#            create_data_csv(args.outdir, expansion_counts['abundance'][primer],args.patient,'abundance',primer)
+#
+#if __name__ == '__main__':
+#    main()
