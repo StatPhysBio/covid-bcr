@@ -3,7 +3,9 @@ from utils import *
 import scipy.stats as stats
 
 def get_expansion_counts(lineages, patient_key, include_singletons=False, slc=True):
-    primer_split_expansion = {"unique": {}, "abundance": {}}
+    primer_split_expansion = {"unique": {},
+                              "abundance": {},
+                              "singleton": {}}
 
     if not slc:
         for key in lineages:
@@ -14,7 +16,7 @@ def get_expansion_counts(lineages, patient_key, include_singletons=False, slc=Tr
             if lineage_primer not in primer_split_expansion["unique"]:
                 primer_split_expansion["unique"][lineage_primer] = {}
                 primer_split_expansion["abundance"][lineage_primer] = {}
-
+                primer_split_expansion["singleton"][lineage_primer] = {}
 
             unique_count = len(uids)
             abundance_counts = sum([get_abundance(u) for u in uids])
@@ -32,18 +34,24 @@ def get_expansion_counts(lineages, patient_key, include_singletons=False, slc=Tr
                                       if get_time(u) == ti
                                       and get_abundance(u) != count_threshold])
                     primer_split_expansion[count_type][lineage_primer][key] = counts
-                else:
+                elif count_type == 'abundance':
                     counts = {}
                     for ti in times:
                         counts[ti] = sum([get_abundance(u) for u in uids
                                       if get_time(u) == ti
                                       and get_abundance(u) != count_threshold])
                     primer_split_expansion[count_type][lineage_primer][key] = counts
+                elif count_type == 'singleton':
+                    counts = {}
+                    for ti in times:
+                        counts[ti] = sum([get_abundance(u) for u in uids
+                                      if get_time(u) == ti
+                                      and get_abundance(u) == 1])
+                    primer_split_expansion[count_type][lineage_primer][key] = counts
+
     else:
         for key in lineages:
-            print(key)
             for rank in lineages[key]:
-                print(rank)
                 lineage = lineages[key][rank]
                 uids = [ann['unique_ids'][0] for ann in lineage]
 
@@ -51,10 +59,12 @@ def get_expansion_counts(lineages, patient_key, include_singletons=False, slc=Tr
                 if lineage_primer not in primer_split_expansion["unique"]:
                     primer_split_expansion["unique"][lineage_primer] = {}
                     primer_split_expansion["abundance"][lineage_primer] = {}
+                    primer_split_expansion["singleton"][lineage_primer] = {}
 
                 if key not in primer_split_expansion["unique"][lineage_primer]:
                     primer_split_expansion["unique"][lineage_primer][key] = {}
                     primer_split_expansion["abundance"][lineage_primer][key] = {}
+                    primer_split_expansion["singleton"][lineage_primer][key] = {}
 
                 unique_count = len(uids)
                 abundance_counts = sum([get_abundance(u) for u in uids])
@@ -72,7 +82,14 @@ def get_expansion_counts(lineages, patient_key, include_singletons=False, slc=Tr
                                           if get_time(u) == ti
                                           and get_abundance(u) != count_threshold])
                         primer_split_expansion[count_type][lineage_primer][key][rank] = counts
-                    else:
+                    elif count_type == 'singleton':
+                        counts = {}
+                        for ti in times:
+                            counts[ti] = sum([get_abundance(u) for u in uids
+                                          if get_time(u) == ti
+                                          and get_abundance(u) == 1])
+                        primer_split_expansion[count_type][lineage_primer][key][rank] = counts
+                    elif count_type == 'abundance':
                         counts = {}
                         for ti in times:
                             counts[ti] = sum([get_abundance(u) for u in uids
@@ -101,7 +118,6 @@ def fisher_exact_test_by_primer(primer_bin, slc=False, time_threshold=18,testtyp
     else:
         for key in primer_bin:
             for rank in primer_bin[key]:
-                print(key, rank)
                 for ti in primer_bin[key][rank]:
                     if int(ti) not in counts:
                         counts[int(ti)] = []
@@ -144,39 +160,42 @@ def fisher_exact_test_by_primer(primer_bin, slc=False, time_threshold=18,testtyp
     fisher_results['pvalue'] = np.array(fisher_results['pvalue'])
     fisher_results['oddsratio'] = np.reciprocal(np.array(fisher_results['oddsratio']))
 
+    if not slc:
+        fisher_results['vjl'] = list(primer_bin.keys())
+    else:
+        fisher_results['vjl'] = [vjl
+                                for vjl in primer_bin.keys()
+                                for rank in primer_bin[vjl]]
+        fisher_results['vjl+rank'] = [list(vjl)+[rank]
+                                      for vjl in primer_bin.keys()
+                                      for rank in primer_bin[vjl]]
     return fisher_results
 
-def get_vjls_and_fet(lineages, patient, timecutoff,slc=False):
-    print(slc)
-    expansion = get_expansion_counts(lineages, patient, include_singletons=True, slc=slc)['abundance']
-    fisher_output = {}
-
-    for primer in expansion:
-        fisher_output[primer] = {}
-        fisher_output[primer]['fet'] =  fisher_exact_test_by_primer(expansion[primer],
-                                                          time_threshold=timecutoff,
-                                                          testtype='less',slc=slc)
-        if not slc:
-            fisher_output[primer]['vjl'] = list(expansion[primer].keys())
-        else:
-            fisher_output[primer]['vjl'] = [key
-                                            for key in expansion[primer].keys()
-                                            for lin_rank in expansion[primer][key]]
-            fisher_output[primer]['vjl+rank'] = [key
-                                            for key in expansion[primer].keys()
-                                            for lin_rank in expansion[primer][key]]
-    return fisher_output
-
 #  For comparison to Oxford database
-def make_csv_file(savename, in_fet_output):
-    col_titles = 'v_gene,j_gene,cdr3_length,pvalue,late_counts/early_counts,oddsratio\n'
+def make_csv_file(savename, in_fet_output,in_expansion,slc=False):
+    print(in_expansion.keys())
+    if not slc:
+        tkey = list(in_expansion['singleton']['IGHV1-F'].keys())[0]
+        times = list(in_expansion['singleton']['IGHV1-F'][tkey].keys())
+    else:
+        tvjl = list(in_expansion['singleton']['IGHV1-F'].keys())[0]
+        trank = list(in_expansion['singleton']['IGHV1-F'][tvjl].keys())[0]
+        times = list(in_expansion['singleton']['IGHV1-F'][tvjl][trank].keys())
+    ti_col_names = ['_unique',"_abundance","_singletons"]
+    ti_cols = []
+    if len(times) != 3:
+        times.append("")
+    for s in ti_col_names:
+        for ti in times:
+            ti_cols.append(str(ti)+s)
+    col_end = ",".join(ti_cols)
+    col_titles = 'v_gene,j_gene,cdr3_length,pvalue,late_counts/early_counts,oddsratio,'+col_end+"\n"
+
     fet_output = sort_dict(in_fet_output)
     with open(savename,'w') as f:
         f.write(col_titles)
         for primer in fet_output:
             for index,lin in enumerate(fet_output[primer]['vjl']):
-                if fet_output[primer]['fet']['early'][index] == 0 or fet_output[primer]['fet']['late'][index] == 0:
-                    continue
                 fold_expansion = fet_output[primer]['fet']['late'][index]/fet_output[primer]['fet']['early'][index]
                 oddsratio = fet_output[primer]['fet']['oddsratio'][index]
                 j, cl, linrank = '','',''
@@ -189,11 +208,36 @@ def make_csv_file(savename, in_fet_output):
                     v = lin[0]
                     j = lin[1]
                     cl = lin[2]
-                f.write("%s,%s,%s,%.16e,%.16e,%.16e\n"%(v,j,cl,
+                elif len(lin) == 4:
+                    v = lin[0]
+                    j = lin[1]
+                    cl = lin[2]
+                f.write("%s,%s,%s,%.16e,%.16e,%.16e,"%(v,j,cl,
                                                         fet_output[primer]['fet']['pvalue'][index],
                                                         fold_expansion,
                                                         oddsratio))
-
+                if not slc:
+                    c = 0
+                    for count_type in in_expansion:
+                        for ti in times:
+                            if not ti=="":
+                                f.write("%i"%in_expansion[count_type][primer][lin][ti])
+                            c+=1
+                            if c != len(in_expansion)*len(times):
+                                f.write(",")
+                    f.write("\n")
+                else:
+                    linrank = fet_output[primer]['vjl+rank'][index][3]
+                    c = 0
+                    for count_type in in_expansion:
+                        for ti in times:
+                            if not ti=="":
+                                f.write("%i"%in_expansion[count_type][primer][lin][linrank][ti])
+                            c+=1
+                            if c != len(in_expansion)*len(times):
+                                f.write(",")
+                    f.write("\n")
+    print("Finished making", savename)
 #  Deprecated.
 #def create_data_csv(out_dir, data, in_patient, key1, key2, extra_info=""):
 #    save_name = 'patient-' + in_patient + "_counts-" + key1 + "_primer-" + key2 + "_"+extra_info+".csv"
