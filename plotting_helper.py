@@ -164,7 +164,7 @@ def plot_gene_unique(if_time_dict, oof_dict,gene,
 def make_line_scatter_time_dynamic(if_time_dict, oof_dict, data_key, xlabel,
                                    ax=None, multiplicity=False, boxtext=None, savename=None):
     if ax is None:
-        fig = plt.figure(dpi=600)
+        fig = plt.figure(dpi=300)
         ax = fig.add_subplot(111)
 
     if data_key == 'cdr3 length':
@@ -294,3 +294,77 @@ def primer_split_plots(if_dict, oof_dict, plotfunc, plotargs,
     if savename:
         fig.savefig(savename, bbox_inches='tight')
         plt.close()
+
+def make_pvalue_scatter_plots(fisher_output, ax=None):
+    if ax is None:
+        fig = plt.figure(dpi=300)
+        ax = fig.add_subplot(111)
+
+    colors = ["blue", "orange", "red", "green", "purple", "deeppink"]
+    markers = ["o","s","p","X",'D',"*"]
+    fisher_output = sort_dict(fisher_output)
+    for j, primer in enumerate(fisher_output):
+        num_clusters = len(fisher_output[primer]['early'])
+        # Get number of points that will show on plot
+        time_diverse_clusters = sum((fisher_output[primer]['early'] != 0)
+                                    * (fisher_output[primer]['late'] != 0))
+        legend_label = ("primer " + primer +
+                       ", total # clusters=" + str(num_clusters) +
+                       "(#shown="+str(time_diverse_clusters)+")")
+        ax.scatter(np.log10(fisher_output[primer]['oddsratio']),
+                   np.log10(fisher_output[primer]['pvalue']),
+                   marker=markers[j],color=colors[j],
+                   alpha=1.0,s=7)
+        ax.scatter(np.log10(fisher_output[primer]['oddsratio'][fisher_output[primer]['pvalue'] == 0.0]),
+                   [-340]*len(fisher_output[primer]['oddsratio'][fisher_output[primer]['pvalue'] == 0.0]),
+                   marker=markers[j],color=colors[j],
+                   alpha=1.0,s=7,label=legend_label)
+    ax.legend(fontsize=5, loc='lower left')
+    ax.set_xlabel("log10[oddsratio]")
+    ax.set_ylabel("log10[pvalues]")
+    ax.set_xlim(-5,5)
+    ax.set_ylim(-350,5)
+    ax.legend(fontsize=5)
+    return ax
+
+def make_expansion_plots(fisher_output, count_type, ax=None):
+    if ax is None:
+        fig = plt.figure(dpi=300)
+        ax = fig.add_subplot(111)
+
+    colors = ["blue", "orange", "red", "green", "purple", "deeppink"]
+    markers = ["o","s","p","X",'D',"*"]
+    fisher_output = sort_dict(fisher_output)
+    for j, primer in enumerate(fisher_output):
+        num_clusters = len(fisher_output[primer]['early'])
+        normalized_early = (fisher_output[primer]['early']
+                            / (fisher_output[primer]['early'] + fisher_output[primer]['other early']))
+        normalized_late = (fisher_output[primer]['late']
+                           / (fisher_output[primer]['late'] + fisher_output[primer]['other late']))
+
+        # Get number of points that will show on plot
+        time_diverse_clusters = sum((fisher_output[primer]['early'] != 0)
+                                    * (fisher_output[primer]['late'] != 0))
+
+        legend_label = ("primer " + primer +
+                        ", total # clusters=" + str(num_clusters) +
+                        "(#shown="+str(time_diverse_clusters)+")")
+        pvalue_thresh = 1e-200
+        ax.scatter(np.log10(normalized_early[fisher_output[primer]['pvalue'] < pvalue_thresh]),
+                   np.log10(normalized_late[fisher_output[primer]['pvalue'] < pvalue_thresh]),
+                    marker=markers[j], color=colors[j],
+                    alpha=1.0, s=7, label=legend_label)
+        ax.scatter(np.log10(normalized_early[fisher_output[primer]['pvalue'] > pvalue_thresh]),
+                   np.log10(normalized_late[fisher_output[primer]['pvalue'] > pvalue_thresh]),
+                    marker=markers[j], color=colors[j],
+                    alpha=0.5, s=7, facecolors='None', linewidth=0.4)
+    ax.legend(fontsize=5, loc='upper left')
+    ax.set_xlabel("log10[early " + count_type + " fraction]")
+    ax.set_ylabel("log10[late " + count_type + " fraction]")
+    ax.set_xlim(-6,0)
+    ax.set_ylim(-6,0)
+    ax.plot(ax.get_xlim(),
+            ax.get_ylim(),
+            ls="--", c=".3")
+    ax.legend(fontsize=5)
+    return ax
