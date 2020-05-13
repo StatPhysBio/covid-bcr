@@ -6,6 +6,7 @@ from collections import Counter, OrderedDict
 from operator import itemgetter
 from jellyfish import hamming_distance
 import csv
+from Bio.SeqIO import parse
 
 CONST_DATA_DICT = {2:{"samples":['4'],
                        "times":['6'],
