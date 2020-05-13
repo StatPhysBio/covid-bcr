@@ -25,6 +25,8 @@ def get_consensus_sequence(lineage):
             if len(seq) == most_common_length:
                 continue
             naives[idx] = fix_N_padding(seq, mc_num_n_start, mc_num_n_end)
+            if len(naives[idx]) != most_common_length:
+                naives[idx] += 'N'*(most_common_length-len(naives[idx]))
 
     #  Initialize dictionary to hold residues at each position
     consensus_residue_list = {}
@@ -49,6 +51,16 @@ def get_consensus_sequence(lineage):
         consensus_sequence += consensus_counter[i].most_common(1)[0][0]
     return consensus_sequence
 
+def get_consensus_cdr3(lineage):
+    consensus_seq = get_consensus_sequence(lineage)
+    for ann in lineage:
+        if len(ann['naive_seq']) == len(consensus_seq):
+            cp = ann['codon_positions']
+            break
+    consensus_cdr3 = consensus_seq[cp['v']:cp['j']+3]
+    cdr3_aa = translate(consensus_cdr3)
+    return cdr3_aa
+
 def make_div_by_3(ann):
     cdr3_start = ann['codon_positions']['v']
     cdr3_length = ann['cdr3_length']
@@ -71,7 +83,7 @@ def make_fastas_for_trees(lineage, ranking, patient, partis, abstar, outdir):
         if len(ann['naive_seq']) == len(consensus_sequence):
             start_index, end_index = make_div_by_3(ann)
             #  To be used to fix padding of input seqs.
-            target_length_input_seq = ann['input_seq']
+            target_length_input_seq = ann['input_seqs'][0]
             target_length = len(target_length_input_seq)
             break
 
