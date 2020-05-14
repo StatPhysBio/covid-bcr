@@ -44,24 +44,28 @@ def get_coarsegrained_bins(vjl_bins):
         v_bins[v] += vjl_bins[vjl]
     return v_bins, vj_bins
 
-def ham_dist_mat(strings):
-    dists = np.zeros((len(strings), len(strings)))
+def ham_dist_oneform(strings):
+    num_seqs = len(strings)
+    num_entries = int((num_seqs**2 - num_seqs) / 2)
+    dists = np.zeros(num_entries,dtype=np.uint16)
+    index = 0
     for i,s1 in enumerate(strings):
         for j,s2 in enumerate(strings):
-            if i < j:
+            if i <= j:
                 break
-            dists[i][j] = dists[j][i] = (hamming_distance(s1,s2)/len(s1))
+            dists[index] = hamming_distance(s1,s2)
+            index+=1
     return dists
 
 #  For making histogram to determine SLC threshold
 def min_hams(mat):
-    mat_copy = np.copy(mat)
-    np.fill_diagonal(discopy, np.inf)
-    return np.amin(discopy,axis=0)
+    mat_copy = np.copy(squareform(mat))
+    np.fill_diagonal(mat_copy, np.inf)
+    return np.amin(mat_copy,axis=0)
 
-def slc_dist_input(dist_mat, threshold):
+def slc_dist_input(dist_oneform, threshold):
     #  Convert distance matrix to 1d condensed distance matrix
-    cdm = squareform(dist_mat)
+    cdm = dist_oneform
     # Make links
     links=linkage(cdm, method='single')
     #  Cluster according to threshold
@@ -96,7 +100,7 @@ def slc_vjl_bin(vjl_bin, partis=None, abstar=None, threshold=None):
         return {1: seq_map[unique_cdr3s[0]]}
 
     # Create distance matrix
-    dists = ham_dist_mat(unique_cdr3s)
+    dists = ham_dist_oneform(unique_cdr3s)
 
     _, clusters = slc_dist_input(dists, threshold)
 
