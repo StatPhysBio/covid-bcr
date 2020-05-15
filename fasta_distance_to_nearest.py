@@ -44,8 +44,8 @@ def ham_dist_oneform(strings):
     index = 0
     for i,s1 in enumerate(strings):
         for j,s2 in enumerate(strings):
-            if i <= j:
-                break
+            if i >= j:
+                continue
             dists[index] = hamming_distance(s1,s2)
             index+=1
     return dists

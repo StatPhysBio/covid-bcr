@@ -44,16 +44,18 @@ def get_coarsegrained_bins(vjl_bins):
         v_bins[v] += vjl_bins[vjl]
     return v_bins, vj_bins
 
+#  Upper triangle of distance matrix
 def ham_dist_oneform(strings):
+    normalization = len(strings[0])
     num_seqs = len(strings)
     num_entries = int((num_seqs**2 - num_seqs) / 2)
-    dists = np.zeros(num_entries,dtype=np.uint16)
+    dists = np.zeros(num_entries,dtype=np.float16)
     index = 0
     for i,s1 in enumerate(strings):
         for j,s2 in enumerate(strings):
-            if i <= j:
-                break
-            dists[index] = (hamming_distance(s1,s2) / len(strings[0]))
+            if i >= j:
+                continue
+            dists[index] = (hamming_distance(s1,s2) / normalization)
             index+=1
     return dists
 
