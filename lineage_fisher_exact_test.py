@@ -3,9 +3,7 @@ from utils import *
 import scipy.stats as stats
 import pandas as pd
 
-def get_counts_by_time(lineage, times):
-    uids = [ann['unique_ids'][0] for ann in lineage]
-    lineage_primer = Counter([get_vprimer(u) for u in uids]).most_common(1)[0][0]
+def get_counts_by_time(uids, times):
     count_dict = {"unique": {},
                  "abundance": {},
                  "singleton": {}}
@@ -29,7 +27,7 @@ def get_counts_by_time(lineage, times):
                               if get_time(u) == ti
                               and get_abundance(u) == 1])
             count_dict[count_type] = counts
-    return count_dict, lineage_primer
+    return count_dict
 
 def get_primer_split_counts(lineages, patient_key):
     primer_split_counts = {"unique": {},
@@ -41,7 +39,9 @@ def get_primer_split_counts(lineages, patient_key):
     if not slc:
         for vjl in lineages:
             lineage = lineages[vjl]
-            count_dict,lineage_primer = get_counts_by_time(lineage,times)
+            uids = [ann['unique_ids'][0] for ann in lineage]
+            lineage_primer = Counter([get_vprimer(u) for u in uids]).most_common(1)[0][0]
+            count_dict,lineage_primer = get_counts_by_time(uids,times)
 
             if lineage_primer not in primer_split_counts["unique"]:
                 primer_split_counts["unique"][lineage_primer] = {}
@@ -55,7 +55,9 @@ def get_primer_split_counts(lineages, patient_key):
             for rank in lineages[vjl]:
                 lineage = lineages[vjl][rank]
                 linkey = tuple(list(vjl)+[rank])
-                count_dict,lineage_primer = get_counts_by_time(lineage,times)
+                uids = [ann['unique_ids'][0] for ann in lineage]
+                lineage_primer = Counter([get_vprimer(u) for u in uids]).most_common(1)[0][0]
+                count_dict = get_counts_by_time(uids,times)
 
                 if lineage_primer not in primer_split_counts["unique"]:
                     primer_split_counts["unique"][lineage_primer] = {}
@@ -136,7 +138,7 @@ def make_trees_for_expanded_lineages(lineages,patient,savedir):
         expanded_lineages += expanded_linkeys
         sizes += df_fet[primer][conditions]['total'].tolist()
 
-    sizes.sort()
+    sizes.sort(reverse=True)
     for linkey in expanded_lineages:
         lin = lineages[(linkey[0:3])][linkey[3]]
         sizerank = sizes.index(df_fet[linkey[4]].at[linkey[0:4],'total'])

@@ -43,9 +43,7 @@ def ham_dist_oneform(strings):
     dists = np.zeros(num_entries,dtype=np.uint16)
     index = 0
     for i,s1 in enumerate(strings):
-        for j,s2 in enumerate(strings):
-            if i >= j:
-                continue
+        for s2 in strings[i+1:]:
             dists[index] = hamming_distance(s1,s2)
             index+=1
     return dists
