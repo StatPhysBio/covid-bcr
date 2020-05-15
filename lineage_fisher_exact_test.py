@@ -1,175 +1,147 @@
 import csv
 from utils import *
 import scipy.stats as stats
+import pandas as pd
 
-def get_expansion_counts(lineages, patient_key, include_singletons=False, slc=True):
-    primer_split_expansion = {"unique": {},
+def get_counts_by_time(lineage, times):
+    uids = [ann['unique_ids'][0] for ann in lineage]
+    lineage_primer = Counter([get_vprimer(u) for u in uids]).most_common(1)[0][0]
+    count_dict = {"unique": {},
+                 "abundance": {},
+                 "singleton": {}}
+    for count_type in count_dict:
+        if count_type == 'unique':
+            counts = {}
+            for ti in times:
+                counts[ti] = sum([1 for u in uids
+                              if get_time(u) == ti])
+            count_dict[key] = counts
+        elif count_type == 'abundance':
+            counts = {}
+            for ti in times:
+                counts[ti] = sum([get_abundance(u) for u in uids
+                              if get_time(u) == ti])
+            count_dict[key] = counts
+        elif count_type == 'singleton':
+            counts = {}
+            for ti in times:
+                counts[ti] = sum([get_abundance(u) for u in uids
+                              if get_time(u) == ti
+                              and get_abundance(u) == 1])
+            count_dict[key] = counts
+    return count_dict, lineage_primer
+
+def get_primer_split_counts(lineages, patient_key):
+    primer_split_counts = {"unique": {},
                               "abundance": {},
                               "singleton": {}}
+    times = np.array(CONST_DATA_DICT[int(patient_key)]['times']).astype(int)
+    slc = type(lineages[list(lineages.keys())[0]]) == dict
 
     if not slc:
-        for key in lineages:
-            lineage = lineages[key]
-            uids = [ann['unique_ids'][0] for ann in lineage]
+        for vjl in lineages:
+            lineage = lineages[vjl]
+            count_dict,lineage_primer = get_counts_by_time(lineage,times)
 
-            lineage_primer = Counter([get_vprimer(u) for u in uids]).most_common(1)[0][0]
-            if lineage_primer not in primer_split_expansion["unique"]:
-                primer_split_expansion["unique"][lineage_primer] = {}
-                primer_split_expansion["abundance"][lineage_primer] = {}
-                primer_split_expansion["singleton"][lineage_primer] = {}
+            if lineage_primer not in primer_split_counts["unique"]:
+                primer_split_counts["unique"][lineage_primer] = {}
+                primer_split_counts["abundance"][lineage_primer] = {}
+                primer_split_counts["singleton"][lineage_primer] = {}
 
-            unique_count = len(uids)
-            abundance_counts = sum([get_abundance(u) for u in uids])
-            times = np.array(CONST_DATA_DICT[int(patient_key)]['times']).astype(int)
-
-            count_threshold = 1
-            if include_singletons:
-                count_threshold = 0
-
-            for count_type in primer_split_expansion:
-                if count_type == 'unique':
-                    counts = {}
-                    for ti in times:
-                        counts[ti] = sum([1 for u in uids
-                                      if get_time(u) == ti
-                                      and get_abundance(u) != count_threshold])
-                    primer_split_expansion[count_type][lineage_primer][key] = counts
-                elif count_type == 'abundance':
-                    counts = {}
-                    for ti in times:
-                        counts[ti] = sum([get_abundance(u) for u in uids
-                                      if get_time(u) == ti
-                                      and get_abundance(u) != count_threshold])
-                    primer_split_expansion[count_type][lineage_primer][key] = counts
-                elif count_type == 'singleton':
-                    counts = {}
-                    for ti in times:
-                        counts[ti] = sum([get_abundance(u) for u in uids
-                                      if get_time(u) == ti
-                                      and get_abundance(u) == 1])
-                    primer_split_expansion[count_type][lineage_primer][key] = counts
-
+            for count_type in primer_split_counts:
+                primer_split_counts[count_type][lineage_primer][vjl] = count_dict[count_type]
     else:
-        for key in lineages:
-            for rank in lineages[key]:
-                lineage = lineages[key][rank]
-                uids = [ann['unique_ids'][0] for ann in lineage]
+        for vjl in lineages:
+            for rank in lineages[vjl]:
+                lineage = lineages[vjl][rank]
+                linkey = tuple(list(vjl)+[rank])
+                count_dict,lineage_primer = get_counts_by_time(lineage,times)
 
-                lineage_primer = Counter([get_vprimer(u) for u in uids]).most_common(1)[0][0]
-                if lineage_primer not in primer_split_expansion["unique"]:
-                    primer_split_expansion["unique"][lineage_primer] = {}
-                    primer_split_expansion["abundance"][lineage_primer] = {}
-                    primer_split_expansion["singleton"][lineage_primer] = {}
+                if lineage_primer not in primer_split_counts["unique"]:
+                    primer_split_counts["unique"][lineage_primer] = {}
+                    primer_split_counts["abundance"][lineage_primer] = {}
+                    primer_split_counts["singleton"][lineage_primer] = {}
 
-                if key not in primer_split_expansion["unique"][lineage_primer]:
-                    primer_split_expansion["unique"][lineage_primer][key] = {}
-                    primer_split_expansion["abundance"][lineage_primer][key] = {}
-                    primer_split_expansion["singleton"][lineage_primer][key] = {}
+                for count_type in primer_split_counts:
+                    primer_split_counts[count_type][lineage_primer][linkey] = count_dict[count_type]
 
-                unique_count = len(uids)
-                abundance_counts = sum([get_abundance(u) for u in uids])
-                times = np.array(CONST_DATA_DICT[int(patient_key)]['times']).astype(int)
+    #  Convert to dataframe
+    df_counts = {}
+    for count_type in primer_split_counts:
+        dif_counts[count_type] = {}
+        for lineage_primer in primer_split_counts[count_type]:
+            df_counts[count_type][lineage_primer] = pd.DataFrame.from_dict(primer_split_counts[count_type][lineage_primer],
+                                                                                      orient='index',dtype=np.uint32)
+    return df_counts
 
-                count_threshold = 1
-                if include_singletons:
-                    count_threshold = 0
-
-                for count_type in primer_split_expansion:
-                    if count_type == 'unique':
-                        counts = {}
-                        for ti in times:
-                            counts[ti] = sum([1 for u in uids
-                                          if get_time(u) == ti
-                                          and get_abundance(u) != count_threshold])
-                        primer_split_expansion[count_type][lineage_primer][key][rank] = counts
-                    elif count_type == 'singleton':
-                        counts = {}
-                        for ti in times:
-                            counts[ti] = sum([get_abundance(u) for u in uids
-                                          if get_time(u) == ti
-                                          and get_abundance(u) == 1])
-                        primer_split_expansion[count_type][lineage_primer][key][rank] = counts
-                    elif count_type == 'abundance':
-                        counts = {}
-                        for ti in times:
-                            counts[ti] = sum([get_abundance(u) for u in uids
-                                          if get_time(u) == ti
-                                          and get_abundance(u) != count_threshold])
-                        primer_split_expansion[count_type][lineage_primer][key][rank] = counts
-
-    return primer_split_expansion
-
-def fisher_exact_test(in_expansion, slc=False, time_threshold=18, testtype='less'):
+def fisher_exact_test(df_counts, slc=False, time_threshold=18, testtype='less'):
     fisher_output = {}
     for primer in in_expansion:
-        fisher_output[primer] = fisher_exact_test_by_primer(in_expansion[primer], slc=slc,
-                                                         time_threshold=time_threshold,testtype=testtype)
+        fisher_output[primer] = fisher_exact_test_by_primer(df_counts[primer],
+                                                            time_threshold=time_threshold,
+                                                            testtype=testtype)
     return fisher_output
 
-def fisher_exact_test_by_primer(primer_bin, slc=False, time_threshold=18,testtype='less'):
-    #  Get counts
-    counts = {}
-    if not slc:
-        for key in primer_bin:
-            for ti in primer_bin[key]:
-                if int(ti) not in counts:
-                    counts[int(ti)] = []
-                counts[int(ti)].append(primer_bin[key][ti])
-    else:
-        for key in primer_bin:
-            for rank in primer_bin[key]:
-                for ti in primer_bin[key][rank]:
-                    if int(ti) not in counts:
-                        counts[int(ti)] = []
-                    counts[int(ti)].append(primer_bin[key][rank][ti])
+def fisher_exact_test_by_primer(df_counts_primer,time_threshold=18,testtype='less'):
+    df = df_counts_primer.sort_index()
+    col_list= list(df)
+    df['total'] = df[col_list].sum(axis=1)
+    early_ti = [ti for ti in col_list if ti < time_threshold]
+    late_ti = [ti for ti in col_list if ti >= time_threshold]
+    df['early'] = df[early_ti].sum(axis=1)
+    df['late'] = df[late_ti].sum(axis=1)
+    df['late/early'] = df['late']/df['early']
+    total_early = sum(df['early'])
+    total_late = sum(df['late'])
+    df['other_early'] = total_early - df['early']
+    df['other_late'] = total_late - df['late']
 
-    #  Split into late and early
-    fisher_input = {"early":[],"late":[], "other early": [], "other late":[]}
-    for i,c in enumerate(counts[list(counts.keys())[0]]):
-        fisher_input["early"].append(sum([counts[ti][i] for ti in counts
-                                          if ti < time_threshold]))
-        fisher_input["late"].append(sum([counts[ti][i] for ti in counts
-                                          if ti >= time_threshold]))
 
-    #  Perform fisher exact test
-    fisher_results = {"oddsratio":[],"pvalue":[]}
-    for i,e_value in enumerate(fisher_input['early']):
-        l_value = fisher_input['late'][i]
-        other_early = sum([ecount
-                           for k,ecount in enumerate(fisher_input['early'])
-                           if k != i])
-        fisher_input["other early"].append(other_early)
-        other_late = sum([lcount
-                           for k,lcount in enumerate(fisher_input['late'])
-                           if k != i])
-        fisher_input["other late"].append(other_late)
-        oddsratio, pvalue = stats.fisher_exact([[e_value, other_early],
-                                                [l_value, other_late]],
-                                               alternative=testtype)
-        fisher_results['pvalue'].append(pvalue)
-        fisher_results['oddsratio'].append(oddsratio)
+    for idx,row in df.iterrows():
+        oddsratio,pvalue = stats.fisher_exact([[row['early'],row['other_early']],
+                    [row['late'],row['other_late']]],
+                   alternative='less')
+        df.at[idx,'oddsratio'] = oddsratio
+        df.at[idx,'pvalue'] = pvalue
+    df['oddsratio'] = np.reciprocal(df['oddsratio'])
+    return df
 
-    #  Set 0 to be extremely small number
-    #  so it shows up on log pvalue plot
-    #  fisher_results['pvalue'] = np.array(fisher_results['pvalue'])
-    #  fisher_results['pvalue'][fisher_results['pvalue'] == 0.0] = 1e-340
-    fisher_results['early'] = np.array(fisher_input['early'])
-    fisher_results['late'] = np.array(fisher_input['late'])
-    fisher_results['other early'] = np.array(fisher_input['other early'])
-    fisher_results['other late'] = np.array(fisher_input['other late'])
-    fisher_results['pvalue'] = np.array(fisher_results['pvalue'])
-    fisher_results['oddsratio'] = np.reciprocal(np.array(fisher_results['oddsratio']))
+def write_lineage_info(fet,patient,rank,linkey,savedir):
+    col_titles = 'v_gene,j_gene,cdr3_length,pvalue,late_counts/early_counts,oddsratio\n'
+    v=linkey[0]
+    j=linkey[1]
+    cl=linkey[2]
+    pvalue=fet.at[linkey,'pvalue']
+    fold_expansion=fet.at[linkey,'late/early']
+    oddsratio=fet.at[linkey,'oddsratio']
+    with open(savedir+'patient-'+patient+'_lineage-'+str(rank)+'.csv','w') as f:
+        f.write(col_titles)
+        f.write("%s,%s,%s,%.16e,%.16e,%.16e,"%(v,j,cl,
+                                               pvalue,
+                                               fold_expansion,
+                                               oddsratio))
 
-    if not slc:
-        fisher_results['vjl'] = list(primer_bin.keys())
-    else:
-        fisher_results['vjl'] = [vjl
-                                for vjl in primer_bin.keys()
-                                for rank in primer_bin[vjl]]
-        fisher_results['vjl+rank'] = [list(vjl)+[rank]
-                                      for vjl in primer_bin.keys()
-                                      for rank in primer_bin[vjl]]
-    return fisher_results
+def make_trees_for_expanded_lineages(lineages,patient,savedir):
+    df_counts = get_primer_split_counts(lineages, patient)['abundance']
+    df_fet = fisher_exact_test(df_counts)
+    expanded_lineages = []
+    sizes = []
+    for primer in in_expansion:
+        conditions = ((df_fet[primer]['pvalue'] < 1e-200)
+                      & (df_fet[primer]['early'] != 0)
+                      & (df_fet[primer]['late'] != 0))
+        expanded_linkeys = df_fet[primer][conditions].index.values.tolist()
+        expanded_linkeys = [tuple(list(linkey) + [primer]) for linkey in expanded_linkeys]
+        expanded_lineages += expanded_linkeys
+        sizes += df_fet[primer][conditions]['total'].tolist()
+
+    sizes.sort()
+    for linkey in expanded_lineages:
+        lin = lineages[(linkey[0:3])][linkey[3]]
+        sizerank = sizes.index(df_fet[linkey[4]].at[linkey[0:4],'total'])
+        make_fastas_for_trees(lin, sizerank, patient,
+                              True, False,savedir)
+        write_lineage_info(df_fet[linkey[4]],patient,sizerank,linkey[0:4],savedir)
 
 #  For comparison to Oxford database
 def make_csv_file(savename, in_fet_output,in_expansion,slc=False):

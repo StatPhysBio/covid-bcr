@@ -1,5 +1,4 @@
 import numpy as np
-import pickle
 from jellyfish import hamming_distance
 from Bio.SeqIO import parse
 from typing import List, Tuple, TextIO
@@ -18,7 +17,7 @@ def get_abundance(uid: str) -> int:
 def get_time(uid: str) -> int:
     return int(uid.split("|")[4].split("=")[-1])
 
-def fasta_parse(fasta: str, patient, timepoint, severity, singletons=True):
+def fasta_parse(fasta: str, patient='', timepoint='', severity='', singletons=True):
     seqs = []
     headers = []
     for seq in parse(fasta, 'fasta'):
@@ -37,6 +36,7 @@ def fasta_parse(fasta: str, patient, timepoint, severity, singletons=True):
         seqs.append(str(seq.seq))
     return seqs, headers
 
+#  Use for square matrix (for seqs with abundance)
 def ham_dist_oneform(strings):
     num_seqs = len(strings)
     num_entries = int((num_seqs**2 - num_seqs) / 2)
@@ -50,11 +50,21 @@ def ham_dist_oneform(strings):
             index+=1
     return dists
 
-#  For making histogram to determine SLC threshold
-def min_hams(oneform):
+def min_hams_oneform(oneform):
     mat = squareform(oneform)
     np.fill_diagonal(mat, 9999)
     return np.amin(mat,axis=0)
+
+#  Use for non-square matrix (singleton vs abundance)
+def ham_dist_matrix(strings1, strings2):
+    dists = np.zeros((len(strings1), len(strings2)),dtype=np.int16)
+    for i,s1 in enumerate(strings1):
+        for j,s2 in enumerate(strings2):
+            dists[i][j] = hamming_distance(s1,s2)
+    return dists
+
+def min_hams_matrix(mat):
+    return np.amin(mat,axis=1)
 
 def group_data(uids: List[str], seqs: List[str]):
     #  Group by sequence length, c primer, and v primer
@@ -73,26 +83,41 @@ def group_data(uids: List[str], seqs: List[str]):
     return grouped_data
 
 def pickle_save(pickle_file, contents):
-    import pickle
     with open(pickle_file, 'wb') as handle:
         pickle.dump(contents, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 def main():
     import argparse
+    import pickle
     parser = argparse.ArgumentParser(
-        description='FASTA hamming distance to nearest')
+        description='FASTA error correction')
     parser.add_argument('--fasta', type=str, help='path to FASTA')
     args = parser.parse_args()
 
-    seqs,headers = fasta_parse(args.fasta,'0','0','0')
+    seqs,headers = fasta_parse(args.fasta)
     grouped = group_data(headers, seqs)
-    nearestdist = []
+    nearestdist = {"singletons":[],"abundant":[]}
 
     bar = progressbar.ProgressBar(max_value=len(grouped))
     for i,key in enumerate(grouped):
-        oneform=ham_dist_oneform(grouped[key]['sequences'])
-        mhams = min_hams(oneform)
-        nearestdist += mhams.tolist()
+        if len(grouped[key]['sequences']) < 2:
+            continue
+        singletons = [s for i,s in enumerate(grouped[key]['sequences'])
+                      if get_abundance(grouped[key]['uids'][i]) == 1]
+        abundant_seqs = [s for i,s in enumerate(grouped[key]['sequences'])
+                         if get_abundance(grouped[key]['uids'][i]) != 1]
+        if len(abundant_seqs) == 0:
+            continue
+        #  Nearest abundant neighbors of singletons
+        if len(singletons) > 0:
+            singleton_mat = ham_dist_matrix(singletons, abundant_seqs)
+            singleton_min_hams = min_hams_matrix(singleton_mat)
+            nearestdist["singletons"] += singleton_min_hams.tolist()
+
+        #  Nearest neighbors of abundant seqs
+        abundant_oneform=ham_dist_oneform(abundant_seqs)
+        mhams = min_hams_oneform(abundant_oneform)
+        nearestdist["abundant"] += mhams.tolist()
         bar.update(i)
     bar.finish()
     pickle_save(args.fasta.replace(".fasta","_min_hams.pickle"),nearestdist)

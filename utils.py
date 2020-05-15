@@ -74,7 +74,15 @@ def csv_to_dict(in_csv_file):
                 csv_dict[key].append(ordered_dict[key])
     return csv_dict
 
-def fasta_parse(fasta: str, patient, timepoint, severity, singletons=True):
+def fasta_read(fasta: str):
+    seqs = []
+    headers = []
+    for seq in parse(fasta, 'fasta'):
+        headers.append(seq.id)
+        seqs.append(str(seq.seq))
+    return seqs, headers
+
+def fasta_parse(fasta: str, patient=None, timepoint='', severity='', singletons=True):
     seqs = []
     headers = []
     for seq in parse(fasta, 'fasta'):
@@ -85,9 +93,8 @@ def fasta_parse(fasta: str, patient, timepoint, severity, singletons=True):
             if abundance_int == 1:
                 continue
 
-        header_info = [uid, "PATIENT="+str(patient),
-                       "TIME=" + str(timepoint), "SEVERITY=" + severity,
-                       cprimer, vprimer]
+        header_info = [uid+"-"+patient, cprimer, vprimer,abundance,
+                       "TIME=" + str(timepoint), "SEVERITY=" + severity]
         header = "|".join(header_info)
         header = ">" + header
         headers.append(header)
@@ -326,7 +333,7 @@ def translate(seq):
         for i in range(0, len(seq), 3):
             codon = seq[i:i + 3]
             if "N" in codon:
-                print("N in codon!!!!")
-                return "("+codon+")"
+                protein += 'X'
+                #return "("+codon+")"
             protein+= table[codon]
     return protein

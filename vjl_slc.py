@@ -53,7 +53,7 @@ def ham_dist_oneform(strings):
         for j,s2 in enumerate(strings):
             if i <= j:
                 break
-            dists[index] = hamming_distance(s1,s2)
+            dists[index] = (hamming_distance(s1,s2) / len(strings[0]))
             index+=1
     return dists
 
@@ -64,50 +64,49 @@ def min_hams(mat):
     return np.amin(mat_copy,axis=0)
 
 def slc_dist_input(dist_oneform, threshold):
-    #  Convert distance matrix to 1d condensed distance matrix
-    cdm = dist_oneform
     # Make links
-    links=linkage(cdm, method='single')
+    links=linkage(dist_oneform, method='single')
     #  Cluster according to threshold
     clusters = fcluster(links, threshold, criterion='distance')
-
     return links, clusters
 
 def slc_vjl_bin(vjl_bin, partis=None, abstar=None, threshold=None):
     if not threshold:
         threshold = 0.15
 
-    #  Create map from unique cdr3s to sequences in vjl bin
+    #  Create map from unique cdr3s to annotations in vjl bin
     if partis:
-        seq_map = {}
+        annotations_map = {}
         for ann in vjl_bin:
             cdr3 = ann['cdr3_seqs'][0]
-            if cdr3 not in seq_map:
-                seq_map[cdr3] = []
-            seq_map[cdr3].append(ann)
+            if cdr3 not in annotations_map:
+                annotations_map[cdr3] = []
+            annotations_map[cdr3].append(ann)
     elif abstar:
-        seq_map = {}
+        annotations_map = {}
         for ann in vjl_bin:
             cdr3 = ann['junc_nt']
-            if cdr3 not in seq_map:
-                seq_map[cdr3] = []
-            seq_map[cdr3].append(ann)
+            if cdr3 not in annotations_map:
+                annotations_map[cdr3] = []
+            annotations_map[cdr3].append(ann)
     else:
         print("Need an option for the annotation input!")
 
-    unique_cdr3s = list(seq_map.keys())
+    unique_cdr3s = list(annotations_map.keys())
     if len(unique_cdr3s) < 2:
-        return {1: seq_map[unique_cdr3s[0]]}
+        return {1: annotations_map[unique_cdr3s[0]]}
 
     # Create distance matrix
     dists = ham_dist_oneform(unique_cdr3s)
 
+    #  Clusters is a list of integers which maps
+    #  each unique cdr3 to a cluster
     _, clusters = slc_dist_input(dists, threshold)
 
-    #  Map sequences to clusters
+    #  Put annotations in clusters
     clone_dict = {}
     for i, c in enumerate(clusters):
-        clone_dict.setdefault(c, []).extend(seq_map[unique_cdr3s[i]])
+        clone_dict.setdefault(c, []).extend(annotations_map[unique_cdr3s[i]])
 
     #  Save clusters to lineage bin
     return clone_dict
