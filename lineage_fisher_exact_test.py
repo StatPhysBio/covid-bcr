@@ -15,20 +15,20 @@ def get_counts_by_time(lineage, times):
             for ti in times:
                 counts[ti] = sum([1 for u in uids
                               if get_time(u) == ti])
-            count_dict[key] = counts
+            count_dict[count_type] = counts
         elif count_type == 'abundance':
             counts = {}
             for ti in times:
                 counts[ti] = sum([get_abundance(u) for u in uids
                               if get_time(u) == ti])
-            count_dict[key] = counts
+            count_dict[count_type] = counts
         elif count_type == 'singleton':
             counts = {}
             for ti in times:
                 counts[ti] = sum([get_abundance(u) for u in uids
                               if get_time(u) == ti
                               and get_abundance(u) == 1])
-            count_dict[key] = counts
+            count_dict[count_type] = counts
     return count_dict, lineage_primer
 
 def get_primer_split_counts(lineages, patient_key):
@@ -68,7 +68,7 @@ def get_primer_split_counts(lineages, patient_key):
     #  Convert to dataframe
     df_counts = {}
     for count_type in primer_split_counts:
-        dif_counts[count_type] = {}
+        df_counts[count_type] = {}
         for lineage_primer in primer_split_counts[count_type]:
             df_counts[count_type][lineage_primer] = pd.DataFrame.from_dict(primer_split_counts[count_type][lineage_primer],
                                                                                       orient='index',dtype=np.uint32)
@@ -76,7 +76,7 @@ def get_primer_split_counts(lineages, patient_key):
 
 def fisher_exact_test(df_counts, slc=False, time_threshold=18, testtype='less'):
     fisher_output = {}
-    for primer in in_expansion:
+    for primer in df_counts:
         fisher_output[primer] = fisher_exact_test_by_primer(df_counts[primer],
                                                             time_threshold=time_threshold,
                                                             testtype=testtype)
@@ -122,11 +122,12 @@ def write_lineage_info(fet,patient,rank,linkey,savedir):
                                                oddsratio))
 
 def make_trees_for_expanded_lineages(lineages,patient,savedir):
+    from get_input_for_trees import make_fastas_for_trees
     df_counts = get_primer_split_counts(lineages, patient)['abundance']
     df_fet = fisher_exact_test(df_counts)
     expanded_lineages = []
     sizes = []
-    for primer in in_expansion:
+    for primer in df_fet:
         conditions = ((df_fet[primer]['pvalue'] < 1e-200)
                       & (df_fet[primer]['early'] != 0)
                       & (df_fet[primer]['late'] != 0))
