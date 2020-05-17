@@ -58,8 +58,37 @@ def get_consensus_cdr3(lineage):
             cp = ann['codon_positions']
             break
     consensus_cdr3 = consensus_seq[cp['v']:cp['j']+3]
+    return consensus_cdr3
     cdr3_aa = translate(consensus_cdr3)
     return cdr3_aa
+
+def get_most_common_naive_cdr3(lineage):
+    naives = [ann['naive_seq'] for ann in lineage]
+    cps = [ann['codon_positions'] for ann in lineage]
+    naive_cdr3 = [None]*len(naives)
+    for i,naive in enumerate(naives):
+        naive_cdr3[i] = naive[cps[i]['v']:cps[i]['j']+3]
+    most_common_naive_cdr3_counter = Counter(naive_cdr3).most_common()
+    counts = [c[1] for c in most_common_naive_cdr3_counter]
+    if len(naive_cdr3) == 1:
+        return naive_cdr3[0]
+    elif {1} == set(counts):
+        if len(naive_cdr3) == 2:
+            return naive_cdr3[0]
+        hd = {}
+        for i,seq1 in enumerate(naive_cdr3):
+            if i == 0:
+                hd[i] = []
+            for j,seq2 in enumerate(naive_cdr3[i+1:]):
+                if j+i+1 not in hd:
+                    hd[j+i+1] = []
+                ham_dist = (hamming_distance(seq1,seq2)/len(b1))
+                hd[i].append(ham_dist)
+                hd[j+i+1].append(ham_dist)
+        min_hd = min(hd,key=lambda e:np.mean(hd[e]))
+        return naive_cdr3[min_hd]
+    else:
+        return most_common_naive_cdr3_counter[0][0]
 
 def make_div_by_3(ann):
     cdr3_start = ann['codon_positions']['v']
