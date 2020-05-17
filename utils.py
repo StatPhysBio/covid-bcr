@@ -8,74 +8,73 @@ from jellyfish import hamming_distance
 import csv
 from Bio.SeqIO import parse
 
-CONST_SAMPLE_DICT = {'IgG1': {'IgG-nCoV-RBD': -999.0, 'IgM-nCoV-RBD': -999.0, 'sample day': 0, 'round': 0, 'severity': 'Healthy', 'patient': '81'},
-                     'IgG2': {'IgG-nCoV-RBD': -999.0, 'IgM-nCoV-RBD': -999.0, 'sample day': 0, 'round': 0, 'severity': 'Healthy', 'patient': '82'},
-                     'IgG3': {'IgG-nCoV-RBD': -999.0, 'IgM-nCoV-RBD': -999.0, 'sample day': 0, 'round': 0, 'severity': 'Healthy', 'patient': '83'},
-                     'IgG4': {'IgG-nCoV-RBD': 0.33, 'IgM-nCoV-RBD': 0.1315, 'sample day': 6, 'round': 1, 'severity': 'Severe', 'patient': '2'},
-                     'IgG5': {'IgG-nCoV-RBD': 0.2745, 'IgM-nCoV-RBD': 0.361, 'sample day': 8, 'round': 1, 'severity': 'Moderate', 'patient': '6'},
-                     'IgG6': {'IgG-nCoV-RBD': 0.799, 'IgM-nCoV-RBD': 0.8005, 'sample day': 2, 'round': 1, 'severity': 'Mild', 'patient': '11'},
-                     'IgG7': {'IgG-nCoV-RBD': 1.477, 'IgM-nCoV-RBD': 1.591, 'sample day': 10, 'round': 1, 'severity': 'Moderate', 'patient': '15'},
-                     'IgG8': {'IgG-nCoV-RBD': 1.89, 'IgM-nCoV-RBD': 2.904, 'sample day': 13, 'round': 1, 'severity': 'Moderate', 'patient': '21'},
-                     'IgG9': {'IgG-nCoV-RBD': 1.447, 'IgM-nCoV-RBD': 1.9265, 'sample day': 15, 'round': 1, 'severity': 'Mild', 'patient': '11'},
-                     'IgG10': {'IgG-nCoV-RBD': 0.1645, 'IgM-nCoV-RBD': 0.3355, 'sample day': 11, 'round': 1, 'severity': 'Moderate', 'patient': '22'},
-                     'IgG11': {'IgG-nCoV-RBD': 1.218, 'IgM-nCoV-RBD': 2.3245, 'sample day': 16, 'round': 1, 'severity': 'Moderate', 'patient': '22'},
-                     'IgG12': {'IgG-nCoV-RBD': 2.0025, 'IgM-nCoV-RBD': 1.139, 'sample day': 8, 'round': 1, 'severity': 'Severe', 'patient': '42'},
-                     'IgG13': {'IgG-nCoV-RBD': 2.028, 'IgM-nCoV-RBD': 2.1485, 'sample day': 27, 'round': 1, 'severity': 'Moderate', 'patient': '15'},
-                     'IgG14': {'IgG-nCoV-RBD': 2.08, 'IgM-nCoV-RBD': 1.7305, 'sample day': 38, 'round': 1, 'severity': 'Moderate', 'patient': '6'},
-                     'IgG15': {'IgG-nCoV-RBD': 1.4265, 'IgM-nCoV-RBD': 2.0875, 'sample day': 34, 'round': 1, 'severity': 'Mild', 'patient': '11'},
-                     'IgG16': {'IgG-nCoV-RBD': 2.293, 'IgM-nCoV-RBD': 2.7875, 'sample day': 28, 'round': 1, 'severity': 'Moderate', 'patient': '21'},
-                     'IgG17': {'IgG-nCoV-RBD': 1.8605, 'IgM-nCoV-RBD': 2.2155, 'sample day': 30, 'round': 1, 'severity': 'Severe', 'patient': '42'},
-                     'IgG18': {'IgG-nCoV-RBD': 2.092, 'IgM-nCoV-RBD': 3.0465, 'sample day': 39, 'round': 1, 'severity': 'Moderate', 'patient': '22'},
-                     'IgG19': {'IgG-nCoV-RBD': 1.892, 'IgM-nCoV-RBD': 1.8885, 'sample day': 18, 'round': 2, 'severity': 'Moderate', 'patient': '9'},
-                     'IgG20': {'IgG-nCoV-RBD': 2.3095, 'IgM-nCoV-RBD': 2.129, 'sample day': 14, 'round': 2, 'severity': 'Moderate', 'patient': '49'},
-                     'IgG21': {'IgG-nCoV-RBD': 1.982, 'IgM-nCoV-RBD': 1.823, 'sample day': 22, 'round': 2, 'severity': 'Mild', 'patient': '4'},
-                     'IgG22': {'IgG-nCoV-RBD': 1.9595, 'IgM-nCoV-RBD': 2.7705, 'sample day': 32, 'round': 2, 'severity': 'Moderate', 'patient': '49'},
-                     'IgG23': {'IgG-nCoV-RBD': 2.276, 'IgM-nCoV-RBD': 2.4285, 'sample day': 34, 'round': 2, 'severity': 'Moderate', 'patient': '9'},
-                     'IgG24': {'IgG-nCoV-RBD': 2.0465, 'IgM-nCoV-RBD': 1.581, 'sample day': 43, 'round': 2, 'severity': 'Mild', 'patient': '4'},
-                     'IgG25': {'IgG-nCoV-RBD': 0.4795, 'IgM-nCoV-RBD': 0.904, 'sample day': 5, 'round': 2, 'severity': 'Moderate', 'patient': '117'},
-                     'IgG26': {'IgG-nCoV-RBD': 0.1525, 'IgM-nCoV-RBD': 0.2125, 'sample day': 8, 'round': 2, 'severity': 'Moderate', 'patient': '117'},
-                     'IgG27': {'IgG-nCoV-RBD': 2.023, 'IgM-nCoV-RBD': 2.196, 'sample day': 37, 'round': 2, 'severity': 'Moderate', 'patient': '49'},
-                     'IgG28': {'IgG-nCoV-RBD': 1.551, 'IgM-nCoV-RBD': 2.074, 'sample day': 18, 'round': 2, 'severity': 'Moderate', 'patient': '117'},
-                     'IgG29': {'IgG-nCoV-RBD': 1.97, 'IgM-nCoV-RBD': 2.107, 'sample day': 44, 'round': 3, 'severity': 'Severe', 'patient': '12'},
-                     'IgG30': {'IgG-nCoV-RBD': 2.034, 'IgM-nCoV-RBD': 1.254, 'sample day': 53, 'round': 3, 'severity': 'Severe', 'patient': '12'},
-                     'IgG31': {'IgG-nCoV-RBD': 2.4255, 'IgM-nCoV-RBD': 2.848, 'sample day': 22, 'round': 3, 'severity': 'Severe', 'patient': '17'},
-                     'IgG32': {'IgG-nCoV-RBD': 2.029, 'IgM-nCoV-RBD': 2.886, 'sample day': 36, 'round': 3, 'severity': 'Severe', 'patient': '17'},
-                     'IgG33': {'IgG-nCoV-RBD': 0.159, 'IgM-nCoV-RBD': 1.311, 'sample day': 7, 'round': 3, 'severity': 'Moderate', 'patient': '196'},
-                     'IgG34': {'IgG-nCoV-RBD': 0.152, 'IgM-nCoV-RBD': 1.1875, 'sample day': 11, 'round': 3, 'severity': 'Moderate', 'patient': '196'},
-                     'IgG35': {'IgG-nCoV-RBD': 0.123, 'IgM-nCoV-RBD': 0.1975, 'sample day': 7, 'round': 3, 'severity': 'Moderate', 'patient': '212'},
-                     'IgG36': {'IgG-nCoV-RBD': 1.594, 'IgM-nCoV-RBD': 1.0525, 'sample day': 13, 'round': 3, 'severity': 'Moderate', 'patient': '212'},
-                     'IgG37': {'IgG-nCoV-RBD': 0.185, 'IgM-nCoV-RBD': 0.178, 'sample day': 3, 'round': 3, 'severity': 'Moderate', 'patient': '271'},
-                     'IgG38': {'IgG-nCoV-RBD': 0.308, 'IgM-nCoV-RBD': 0.687, 'sample day': 7, 'round': 3, 'severity': 'Moderate', 'patient': '271'},
-                     'IgG39': {'IgG-nCoV-RBD': 0.248, 'IgM-nCoV-RBD': 0.3735, 'sample day': 8, 'round': 3, 'severity': 'Moderate', 'patient': '166'},
-                     'IgG40': {'IgG-nCoV-RBD': 0.7375, 'IgM-nCoV-RBD': 0.726, 'sample day': 14, 'round': 3, 'severity': 'Moderate', 'patient': '166'},
-                     'IgG41': {'IgG-nCoV-RBD': 2.0945, 'IgM-nCoV-RBD': 1.0145, 'sample day': 39, 'round': 3, 'severity': 'Severe', 'patient': '7'},
-                     'IgG42': {'IgG-nCoV-RBD': 1.9905, 'IgM-nCoV-RBD': 0.8055, 'sample day': 41, 'round': 3, 'severity': 'Severe', 'patient': '7'},
-                     'IgG43': {'IgG-nCoV-RBD': 2.0735, 'IgM-nCoV-RBD': 0.6615, 'sample day': 71, 'round': 3, 'severity': 'Severe', 'patient': '7'},
-                     'IgG44': {'IgG-nCoV-RBD': 0.1635, 'IgM-nCoV-RBD': 0.4795, 'sample day': 10, 'round': 3, 'severity': 'Moderate', 'patient': '187'},
-                     'IgG45': {'IgG-nCoV-RBD': 0.518, 'IgM-nCoV-RBD': 1.5075, 'sample day': 15, 'round': 3, 'severity': 'Moderate', 'patient': '187'}}
-
-CONST_DATA_DICT = {'81': {'IgG-nCoV-RBD': [-999.0], 'IgM-nCoV-RBD': [-999.0], 'sample day': [0], 'round': 0, 'severity': 'Healthy'},
-                   '82': {'IgG-nCoV-RBD': [-999.0], 'IgM-nCoV-RBD': [-999.0], 'sample day': [0], 'round': 0, 'severity': 'Healthy'},
-                   '83': {'IgG-nCoV-RBD': [-999.0], 'IgM-nCoV-RBD': [-999.0], 'sample day': [0], 'round': 0, 'severity': 'Healthy'},
-                   '2': {'IgG-nCoV-RBD': [0.33], 'IgM-nCoV-RBD': [0.1315], 'sample day': [6], 'round': 1, 'severity': 'Severe'},
-                   '6': {'IgG-nCoV-RBD': [0.2745, 2.08], 'IgM-nCoV-RBD': [0.361, 1.7305], 'sample day': [8, 38], 'round': 1, 'severity': 'Moderate'},
-                   '11': {'IgG-nCoV-RBD': [0.799, 1.447, 1.4265], 'IgM-nCoV-RBD': [0.8005, 1.9265, 2.0875], 'sample day': [2, 15, 34], 'round': 1, 'severity': 'Mild'},
-                   '15': {'IgG-nCoV-RBD': [1.477, 2.028], 'IgM-nCoV-RBD': [1.591, 2.1485], 'sample day': [10, 27], 'round': 1, 'severity': 'Moderate'},
-                   '21': {'IgG-nCoV-RBD': [1.89, 2.293], 'IgM-nCoV-RBD': [2.904, 2.7875], 'sample day': [13, 28], 'round': 1, 'severity': 'Moderate'},
-                   '22': {'IgG-nCoV-RBD': [0.1645, 1.218, 2.092], 'IgM-nCoV-RBD': [0.3355, 2.3245, 3.0465], 'sample day': [11, 16, 39], 'round': 1, 'severity': 'Moderate'},
-                   '42': {'IgG-nCoV-RBD': [2.0025, 1.8605], 'IgM-nCoV-RBD': [1.139, 2.2155], 'sample day': [8, 30], 'round': 1, 'severity': 'Severe'},
-                   '9': {'IgG-nCoV-RBD': [1.892, 2.276], 'IgM-nCoV-RBD': [1.8885, 2.4285], 'sample day': [18, 34], 'round': 2, 'severity': 'Moderate'},
-                   '49': {'IgG-nCoV-RBD': [2.3095, 1.9595, 2.023], 'IgM-nCoV-RBD': [2.129, 2.7705, 2.196], 'sample day': [14, 32, 37], 'round': 2, 'severity': 'Moderate'},
-                   '4': {'IgG-nCoV-RBD': [1.982, 2.0465], 'IgM-nCoV-RBD': [1.823, 1.581], 'sample day': [22, 43], 'round': 2, 'severity': 'Mild'},
-                   '117': {'IgG-nCoV-RBD': [0.4795, 0.1525, 1.551], 'IgM-nCoV-RBD': [0.904, 0.2125, 2.074], 'sample day': [5, 8, 18], 'round': 2, 'severity': 'Moderate'},
-                   '12': {'IgG-nCoV-RBD': [1.97, 2.034], 'IgM-nCoV-RBD': [2.107, 1.254], 'sample day': [44, 53], 'round': 3, 'severity': 'Severe'},
-                   '17': {'IgG-nCoV-RBD': [2.4255, 2.029], 'IgM-nCoV-RBD': [2.848, 2.886], 'sample day': [22, 36], 'round': 3, 'severity': 'Severe'},
-                   '196': {'IgG-nCoV-RBD': [0.159, 0.152], 'IgM-nCoV-RBD': [1.311, 1.1875], 'sample day': [7, 11], 'round': 3, 'severity': 'Moderate'},
-                   '212': {'IgG-nCoV-RBD': [0.123, 1.594], 'IgM-nCoV-RBD': [0.1975, 1.0525], 'sample day': [7, 13], 'round': 3, 'severity': 'Moderate'},
-                   '271': {'IgG-nCoV-RBD': [0.185, 0.308], 'IgM-nCoV-RBD': [0.178, 0.687], 'sample day': [3, 7], 'round': 3, 'severity': 'Moderate'},
-                   '166': {'IgG-nCoV-RBD': [0.248, 0.7375], 'IgM-nCoV-RBD': [0.3735, 0.726], 'sample day': [8, 14], 'round': 3, 'severity': 'Moderate'},
-                   '7': {'IgG-nCoV-RBD': [2.0945, 1.9905, 2.0735], 'IgM-nCoV-RBD': [1.0145, 0.8055, 0.6615], 'sample day': [39, 41, 71], 'round': 3, 'severity': 'Severe'},
-                   '187': {'IgG-nCoV-RBD': [0.1635, 0.518], 'IgM-nCoV-RBD': [0.4795, 1.5075], 'sample day': [10, 15], 'round': 3, 'severity': 'Moderate'}}
+CONST_SAMPLE_DICT = {'1': {'IgG-nCoV-RBD': -999.0, 'IgM-nCoV-RBD': -999.0, 'sample day': 0, 'round': 0, 'severity': 'Healthy', 'patient': '81'},
+                     '2': {'IgG-nCoV-RBD': -999.0, 'IgM-nCoV-RBD': -999.0, 'sample day': 0, 'round': 0, 'severity': 'Healthy', 'patient': '82'},
+                     '3': {'IgG-nCoV-RBD': -999.0, 'IgM-nCoV-RBD': -999.0, 'sample day': 0, 'round': 0, 'severity': 'Healthy', 'patient': '83'},
+                     '4': {'IgG-nCoV-RBD': 0.33, 'IgM-nCoV-RBD': 0.1315, 'sample day': 6, 'round': 1, 'severity': 'Severe', 'patient': '2'},
+                     '5': {'IgG-nCoV-RBD': 0.2745, 'IgM-nCoV-RBD': 0.361, 'sample day': 8, 'round': 1, 'severity': 'Moderate', 'patient': '6'},
+                     '6': {'IgG-nCoV-RBD': 0.799, 'IgM-nCoV-RBD': 0.8005, 'sample day': 2, 'round': 1, 'severity': 'Mild', 'patient': '11'},
+                     '7': {'IgG-nCoV-RBD': 1.477, 'IgM-nCoV-RBD': 1.591, 'sample day': 10, 'round': 1, 'severity': 'Moderate', 'patient': '15'},
+                     '8': {'IgG-nCoV-RBD': 1.89, 'IgM-nCoV-RBD': 2.904, 'sample day': 13, 'round': 1, 'severity': 'Moderate', 'patient': '21'},
+                     '9': {'IgG-nCoV-RBD': 1.447, 'IgM-nCoV-RBD': 1.9265, 'sample day': 15, 'round': 1, 'severity': 'Mild', 'patient': '11'},
+                     '10': {'IgG-nCoV-RBD': 0.1645, 'IgM-nCoV-RBD': 0.3355, 'sample day': 11, 'round': 1, 'severity': 'Moderate', 'patient': '22'},
+                     '11': {'IgG-nCoV-RBD': 1.218, 'IgM-nCoV-RBD': 2.3245, 'sample day': 16, 'round': 1, 'severity': 'Moderate', 'patient': '22'},
+                     '12': {'IgG-nCoV-RBD': 2.0025, 'IgM-nCoV-RBD': 1.139, 'sample day': 8, 'round': 1, 'severity': 'Severe', 'patient': '42'},
+                     '13': {'IgG-nCoV-RBD': 2.028, 'IgM-nCoV-RBD': 2.1485, 'sample day': 27, 'round': 1, 'severity': 'Moderate', 'patient': '15'},
+                     '14': {'IgG-nCoV-RBD': 2.08, 'IgM-nCoV-RBD': 1.7305, 'sample day': 38, 'round': 1, 'severity': 'Moderate', 'patient': '6'},
+                     '15': {'IgG-nCoV-RBD': 1.4265, 'IgM-nCoV-RBD': 2.0875, 'sample day': 34, 'round': 1, 'severity': 'Mild', 'patient': '11'},
+                     '16': {'IgG-nCoV-RBD': 2.293, 'IgM-nCoV-RBD': 2.7875, 'sample day': 28, 'round': 1, 'severity': 'Moderate', 'patient': '21'},
+                     '17': {'IgG-nCoV-RBD': 1.8605, 'IgM-nCoV-RBD': 2.2155, 'sample day': 30, 'round': 1, 'severity': 'Severe', 'patient': '42'},
+                     '18': {'IgG-nCoV-RBD': 2.092, 'IgM-nCoV-RBD': 3.0465, 'sample day': 39, 'round': 1, 'severity': 'Moderate', 'patient': '22'},
+                     '19': {'IgG-nCoV-RBD': 1.892, 'IgM-nCoV-RBD': 1.8885, 'sample day': 18, 'round': 2, 'severity': 'Moderate', 'patient': '9'},
+                     '20': {'IgG-nCoV-RBD': 2.3095, 'IgM-nCoV-RBD': 2.129, 'sample day': 14, 'round': 2, 'severity': 'Moderate', 'patient': '49'},
+                     '21': {'IgG-nCoV-RBD': 1.982, 'IgM-nCoV-RBD': 1.823, 'sample day': 22, 'round': 2, 'severity': 'Mild', 'patient': '4'},
+                     '22': {'IgG-nCoV-RBD': 1.9595, 'IgM-nCoV-RBD': 2.7705, 'sample day': 32, 'round': 2, 'severity': 'Moderate', 'patient': '49'},
+                     '23': {'IgG-nCoV-RBD': 2.276, 'IgM-nCoV-RBD': 2.4285, 'sample day': 34, 'round': 2, 'severity': 'Moderate', 'patient': '9'},
+                     '24': {'IgG-nCoV-RBD': 2.0465, 'IgM-nCoV-RBD': 1.581, 'sample day': 43, 'round': 2, 'severity': 'Mild', 'patient': '4'},
+                     '25': {'IgG-nCoV-RBD': 0.4795, 'IgM-nCoV-RBD': 0.904, 'sample day': 5, 'round': 2, 'severity': 'Moderate', 'patient': '117'},
+                     '26': {'IgG-nCoV-RBD': 0.1525, 'IgM-nCoV-RBD': 0.2125, 'sample day': 8, 'round': 2, 'severity': 'Moderate', 'patient': '117'},
+                     '27': {'IgG-nCoV-RBD': 2.023, 'IgM-nCoV-RBD': 2.196, 'sample day': 37, 'round': 2, 'severity': 'Moderate', 'patient': '49'},
+                     '28': {'IgG-nCoV-RBD': 1.551, 'IgM-nCoV-RBD': 2.074, 'sample day': 18, 'round': 2, 'severity': 'Moderate', 'patient': '117'},
+                     '29': {'IgG-nCoV-RBD': 1.97, 'IgM-nCoV-RBD': 2.107, 'sample day': 44, 'round': 3, 'severity': 'Severe', 'patient': '12'},
+                     '30': {'IgG-nCoV-RBD': 2.034, 'IgM-nCoV-RBD': 1.254, 'sample day': 53, 'round': 3, 'severity': 'Severe', 'patient': '12'},
+                     '31': {'IgG-nCoV-RBD': 2.4255, 'IgM-nCoV-RBD': 2.848, 'sample day': 22, 'round': 3, 'severity': 'Severe', 'patient': '17'},
+                     '32': {'IgG-nCoV-RBD': 2.029, 'IgM-nCoV-RBD': 2.886, 'sample day': 36, 'round': 3, 'severity': 'Severe', 'patient': '17'},
+                     '33': {'IgG-nCoV-RBD': 0.159, 'IgM-nCoV-RBD': 1.311, 'sample day': 7, 'round': 3, 'severity': 'Moderate', 'patient': '196'},
+                     '34': {'IgG-nCoV-RBD': 0.152, 'IgM-nCoV-RBD': 1.1875, 'sample day': 11, 'round': 3, 'severity': 'Moderate', 'patient': '196'},
+                     '35': {'IgG-nCoV-RBD': 0.123, 'IgM-nCoV-RBD': 0.1975, 'sample day': 7, 'round': 3, 'severity': 'Moderate', 'patient': '212'},
+                     '36': {'IgG-nCoV-RBD': 1.594, 'IgM-nCoV-RBD': 1.0525, 'sample day': 13, 'round': 3, 'severity': 'Moderate', 'patient': '212'},
+                     '37': {'IgG-nCoV-RBD': 0.185, 'IgM-nCoV-RBD': 0.178, 'sample day': 3, 'round': 3, 'severity': 'Moderate', 'patient': '271'},
+                     '38': {'IgG-nCoV-RBD': 0.308, 'IgM-nCoV-RBD': 0.687, 'sample day': 7, 'round': 3, 'severity': 'Moderate', 'patient': '271'},
+                     '39': {'IgG-nCoV-RBD': 0.248, 'IgM-nCoV-RBD': 0.3735, 'sample day': 8, 'round': 3, 'severity': 'Moderate', 'patient': '166'},
+                     '40': {'IgG-nCoV-RBD': 0.7375, 'IgM-nCoV-RBD': 0.726, 'sample day': 14, 'round': 3, 'severity': 'Moderate', 'patient': '166'},
+                     '41': {'IgG-nCoV-RBD': 2.0945, 'IgM-nCoV-RBD': 1.0145, 'sample day': 39, 'round': 3, 'severity': 'Severe', 'patient': '7'},
+                     '42': {'IgG-nCoV-RBD': 1.9905, 'IgM-nCoV-RBD': 0.8055, 'sample day': 41, 'round': 3, 'severity': 'Severe', 'patient': '7'},
+                     '43': {'IgG-nCoV-RBD': 2.0735, 'IgM-nCoV-RBD': 0.6615, 'sample day': 71, 'round': 3, 'severity': 'Severe', 'patient': '7'},
+                     '44': {'IgG-nCoV-RBD': 0.1635, 'IgM-nCoV-RBD': 0.4795, 'sample day': 10, 'round': 3, 'severity': 'Moderate', 'patient': '187'},
+                     '45': {'IgG-nCoV-RBD': 0.518, 'IgM-nCoV-RBD': 1.5075, 'sample day': 15, 'round': 3, 'severity': 'Moderate', 'patient': '187'}}
+CONST_DATA_DICT = {'81': {'IgG-nCoV-RBD': [-999.0], 'IgM-nCoV-RBD': [-999.0], 'sample day': [0], 'round': 0, 'severity': 'Healthy', 'sample': ['1']},
+                   '82': {'IgG-nCoV-RBD': [-999.0], 'IgM-nCoV-RBD': [-999.0], 'sample day': [0], 'round': 0, 'severity': 'Healthy', 'sample': ['2']},
+                   '83': {'IgG-nCoV-RBD': [-999.0], 'IgM-nCoV-RBD': [-999.0], 'sample day': [0], 'round': 0, 'severity': 'Healthy', 'sample': ['3']},
+                   '2': {'IgG-nCoV-RBD': [0.33], 'IgM-nCoV-RBD': [0.1315], 'sample day': [6], 'round': 1, 'severity': 'Severe', 'sample': ['4']},
+                   '6': {'IgG-nCoV-RBD': [0.2745, 2.08], 'IgM-nCoV-RBD': [0.361, 1.7305], 'sample day': [8, 38], 'round': 1, 'severity': 'Moderate', 'sample': ['5', '14']},
+                   '11': {'IgG-nCoV-RBD': [0.799, 1.447, 1.4265], 'IgM-nCoV-RBD': [0.8005, 1.9265, 2.0875], 'sample day': [2, 15, 34], 'round': 1, 'severity': 'Mild', 'sample': ['6', '9', '15']},
+                   '15': {'IgG-nCoV-RBD': [1.477, 2.028], 'IgM-nCoV-RBD': [1.591, 2.1485], 'sample day': [10, 27], 'round': 1, 'severity': 'Moderate', 'sample': ['7', '13']},
+                   '21': {'IgG-nCoV-RBD': [1.89, 2.293], 'IgM-nCoV-RBD': [2.904, 2.7875], 'sample day': [13, 28], 'round': 1, 'severity': 'Moderate', 'sample': ['8', '16']},
+                   '22': {'IgG-nCoV-RBD': [0.1645, 1.218, 2.092], 'IgM-nCoV-RBD': [0.3355, 2.3245, 3.0465], 'sample day': [11, 16, 39], 'round': 1, 'severity': 'Moderate', 'sample': ['10', '11', '18']},
+                   '42': {'IgG-nCoV-RBD': [2.0025, 1.8605], 'IgM-nCoV-RBD': [1.139, 2.2155], 'sample day': [8, 30], 'round': 1, 'severity': 'Severe', 'sample': ['12', '17']},
+                   '9': {'IgG-nCoV-RBD': [1.892, 2.276], 'IgM-nCoV-RBD': [1.8885, 2.4285], 'sample day': [18, 34], 'round': 2, 'severity': 'Moderate', 'sample': ['19', '23']},
+                   '49': {'IgG-nCoV-RBD': [2.3095, 1.9595, 2.023], 'IgM-nCoV-RBD': [2.129, 2.7705, 2.196], 'sample day': [14, 32, 37], 'round': 2, 'severity': 'Moderate', 'sample': ['20', '22', '27']},
+                   '4': {'IgG-nCoV-RBD': [1.982, 2.0465], 'IgM-nCoV-RBD': [1.823, 1.581], 'sample day': [22, 43], 'round': 2, 'severity': 'Mild', 'sample': ['21', '24']},
+                   '117': {'IgG-nCoV-RBD': [0.4795, 0.1525, 1.551], 'IgM-nCoV-RBD': [0.904, 0.2125, 2.074], 'sample day': [5, 8, 18], 'round': 2, 'severity': 'Moderate', 'sample': ['25', '26', '28']},
+                   '12': {'IgG-nCoV-RBD': [1.97, 2.034], 'IgM-nCoV-RBD': [2.107, 1.254], 'sample day': [44, 53], 'round': 3, 'severity': 'Severe', 'sample': ['29', '30']},
+                   '17': {'IgG-nCoV-RBD': [2.4255, 2.029], 'IgM-nCoV-RBD': [2.848, 2.886], 'sample day': [22, 36], 'round': 3, 'severity': 'Severe', 'sample': ['31', '32']},
+                   '196': {'IgG-nCoV-RBD': [0.159, 0.152], 'IgM-nCoV-RBD': [1.311, 1.1875], 'sample day': [7, 11], 'round': 3, 'severity': 'Moderate', 'sample': ['33', '34']},
+                   '212': {'IgG-nCoV-RBD': [0.123, 1.594], 'IgM-nCoV-RBD': [0.1975, 1.0525], 'sample day': [7, 13], 'round': 3, 'severity': 'Moderate', 'sample': ['35', '36']},
+                   '271': {'IgG-nCoV-RBD': [0.185, 0.308], 'IgM-nCoV-RBD': [0.178, 0.687], 'sample day': [3, 7], 'round': 3, 'severity': 'Moderate', 'sample': ['37', '38']},
+                   '166': {'IgG-nCoV-RBD': [0.248, 0.7375], 'IgM-nCoV-RBD': [0.3735, 0.726], 'sample day': [8, 14], 'round': 3, 'severity': 'Moderate', 'sample': ['39', '40']},
+                   '7': {'IgG-nCoV-RBD': [2.0945, 1.9905, 2.0735], 'IgM-nCoV-RBD': [1.0145, 0.8055, 0.6615], 'sample day': [39, 41, 71], 'round': 3, 'severity': 'Severe', 'sample': ['41', '42', '43']},
+                   '187': {'IgG-nCoV-RBD': [0.1635, 0.518], 'IgM-nCoV-RBD': [0.4795, 1.5075], 'sample day': [10, 15], 'round': 3, 'severity': 'Moderate', 'sample': ['44', '45']}}
 
 partis_v_genes = ['IGHV1-18', 'IGHV1-2', 'IGHV1-24', 'IGHV1-3',
                   'IGHV1-46', 'IGHV1-58', 'IGHV1-69', 'IGHV1-8',
@@ -129,9 +128,17 @@ def fasta_read(fasta: str):
         seqs.append(str(seq.seq))
     return seqs, headers
 
-def fasta_parse(fasta: str, patient=None, timepoint='', severity='', singletons=True):
+def fasta_parse(fasta: str, patient=None, timepoint='', severity='', oneline_collapsed=False, singletons=True):
     seqs = []
     headers = []
+
+    if oneline_collapsed:
+        sample = fasta.split("_").replace("S","")
+        if "-" in sample:
+            replicate = sample.split("-")[-1]
+        else:
+            replicate = '1'
+
     for seq in parse(fasta, 'fasta'):
         uid, cprimer, vprimer, abundance = (x for x in seq.id.split('|'))
 
@@ -140,8 +147,9 @@ def fasta_parse(fasta: str, patient=None, timepoint='', severity='', singletons=
             if abundance_int == 1:
                 continue
 
-        header_info = [uid+"-"+patient, cprimer, vprimer,abundance,
-                       "TIME=" + str(timepoint), "SEVERITY=" + severity]
+        header_info = [uid+"="+patient, cprimer, vprimer,abundance,
+                       "TIME=" + str(timepoint), "SEVERITY=" + severity,
+                       "REPLICATE=" + replicate]
         header = "|".join(header_info)
         header = ">" + header
         headers.append(header)
@@ -287,6 +295,9 @@ def convert_header(header):
                      'TIME='+time,
                      'SEVERITY='+severity])
 
+def get_patient(uid: str) -> int:
+    return int(uid.split("|")[0].split("=")[-1]
+
 def get_cprimer(uid: str) -> str:
     return uid.split("|")[1].split("=")[-1]
 
@@ -298,6 +309,12 @@ def get_abundance(uid: str) -> int:
 
 def get_time(uid: str) -> int:
     return int(uid.split("|")[4].split("=")[-1])
+
+def get_severity(uid: str) -> str:
+    return uid.split("|")[5].split("=")[-1]
+
+def get_replicate(uid: str) -> str:
+    return uid.split("|")[6].split("=")[-1]
 
 #def get_dupcounts(uid):
 #    return int(uid.split("_")[4].replace("dupcounts--",""))
