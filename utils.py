@@ -128,12 +128,15 @@ def fasta_read(fasta: str):
         seqs.append(str(seq.seq))
     return seqs, headers
 
-def fasta_parse(fasta: str, patient=None, timepoint='', severity='', oneline_collapsed=False, singletons=True):
+def fasta_parse(fasta: str, patient='', timepoint='',
+                severity='', replicate='',
+                oneline_collapsed=False, singletons=True):
     seqs = []
     headers = []
 
     if oneline_collapsed:
-        sample = fasta.split("_").replace("S","")
+        filename = fasta.split("/")[-1]
+        sample = filename.split("_")[0].replace("S","")
         if "-" in sample:
             replicate = sample.split("-")[-1]
         else:
@@ -147,9 +150,19 @@ def fasta_parse(fasta: str, patient=None, timepoint='', severity='', oneline_col
             if abundance_int == 1:
                 continue
 
-        header_info = [uid+"="+patient, cprimer, vprimer,abundance,
-                       "TIME=" + str(timepoint), "SEVERITY=" + severity,
-                       "REPLICATE=" + replicate]
+        if oneline_collapsed:
+            header_info = [uid+"="+CONST_SAMPLE_DICT[sample]['patient'],
+                           cprimer, vprimer,abundance,
+                           "TIME=" + str(CONST_SAMPLE_DICT[sample]['sample day']),
+                           "SEVERITY=" + str(CONST_SAMPLE_DICT[sample]['severity']),
+                           "REPLICATE=" + replicate]
+        else:
+            header_info = [uid+"="+patient,
+                           cprimer, vprimer,abundance,
+                           "TIME=" + timepoint,
+                           "SEVERITY=" + severity,
+                           "REPLICATE=" + replicate]
+
         header = "|".join(header_info)
         header = ">" + header
         headers.append(header)
@@ -296,7 +309,7 @@ def convert_header(header):
                      'SEVERITY='+severity])
 
 def get_patient(uid: str) -> int:
-    return int(uid.split("|")[0].split("=")[-1]
+    return int(uid.split("|")[0].split("=")[-1])
 
 def get_cprimer(uid: str) -> str:
     return uid.split("|")[1].split("=")[-1]
@@ -389,8 +402,8 @@ def translate(seq):
         'GGA':'G', 'GGC':'G', 'GGG':'G', 'GGT':'G',
         'TCA':'S', 'TCC':'S', 'TCG':'S', 'TCT':'S',
         'TTC':'F', 'TTT':'F', 'TTA':'L', 'TTG':'L',
-        'TAC':'Y', 'TAT':'Y', 'TAA':'_', 'TAG':'_',
-        'TGC':'C', 'TGT':'C', 'TGA':'_', 'TGG':'W',
+        'TAC':'Y', 'TAT':'Y', 'TAA':'*', 'TAG':'*',
+        'TGC':'C', 'TGT':'C', 'TGA':'*', 'TGG':'W',
     }
     protein =""
     if len(seq)%3 == 0:
@@ -398,6 +411,6 @@ def translate(seq):
             codon = seq[i:i + 3]
             if "N" in codon:
                 protein += 'X'
-                #return "("+codon+")"
-            protein+= table[codon]
+            else:
+                protein+= table[codon]
     return protein
