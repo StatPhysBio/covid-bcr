@@ -7,40 +7,39 @@ def get_counts_by_time(uids, times):
     count_dict = {"unique": {},
                  "abundance": {},
                  "singleton": {}}
-    for count_type in count_dict:
-        if count_type == 'unique':
-            counts = {}
-            for ti in times:
-                counts[ti] = sum([1 for u in uids
-                              if get_time(u) == ti])
-            count_dict[count_type] = counts
-        elif count_type == 'abundance':
-            counts = {}
-            for ti in times:
-                counts[ti] = sum([get_abundance(u) for u in uids
-                              if get_time(u) == ti])
-            count_dict[count_type] = counts
-        elif count_type == 'singleton':
-            counts = {}
-            for ti in times:
-                counts[ti] = sum([get_abundance(u) for u in uids
-                              if get_time(u) == ti
-                              and get_abundance(u) == 1])
-            count_dict[count_type] = counts
-    return count_dict
+    vprimers = [None]*len(uids)
+    for ti in times:
+        count_dict['unique'][ti] = 0
+        count_dict['abundance'][ti] = 0
+        count_dict['singleton'][ti] = 0
+
+    for i,u in enumerate(uids):
+        vprimers[i] = get_vprimer(u)
+        ti = get_time(u)
+        count_dict['unique'][ti] += 1
+        abundance = get_abundance(u)
+        count_dict['abundance'][ti] += abundance
+        if abundance == 1:
+            count_dict['singleton'][ti] += 1
+    lineage_primer = Counter(vprimers).most_common(1)[0][0]
+    return count_dict,lineage_primer
 
 def get_primer_split_counts(lineages, patient_key):
     primer_split_counts = {"unique": {},
-                              "abundance": {},
-                              "singleton": {}}
-    times = np.array(CONST_DATA_DICT[int(patient_key)]['times']).astype(int)
+                           "abundance": {},
+                           "singleton": {}}
+    if type(patient_key) == list:
+        times = []
+        for pkey in patient_key:
+            times += CONST_DATA_DICT[str(pkey)]['sample day']
+    else:
+        times = CONST_DATA_DICT[str(patient_key)]['sample day']
+
     slc = type(lineages[list(lineages.keys())[0]]) == dict
 
     if not slc:
         for vjl in lineages:
-            lineage = lineages[vjl]
-            uids = [ann['unique_ids'][0] for ann in lineage]
-            lineage_primer = Counter([get_vprimer(u) for u in uids]).most_common(1)[0][0]
+            uids = [ann['unique_ids'][0] for ann in lineages[vjl]]
             count_dict,lineage_primer = get_counts_by_time(uids,times)
 
             if lineage_primer not in primer_split_counts["unique"]:
@@ -53,11 +52,9 @@ def get_primer_split_counts(lineages, patient_key):
     else:
         for vjl in lineages:
             for rank in lineages[vjl]:
-                lineage = lineages[vjl][rank]
                 linkey = tuple(list(vjl)+[rank])
-                uids = [ann['unique_ids'][0] for ann in lineage]
-                lineage_primer = Counter([get_vprimer(u) for u in uids]).most_common(1)[0][0]
-                count_dict = get_counts_by_time(uids,times)
+                uids = [ann['unique_ids'][0] for ann in lineages[vjl][rank]]
+                count_dict, lineage_primer = get_counts_by_time(uids,times)
 
                 if lineage_primer not in primer_split_counts["unique"]:
                     primer_split_counts["unique"][lineage_primer] = {}
@@ -76,7 +73,7 @@ def get_primer_split_counts(lineages, patient_key):
                                                                                       orient='index',dtype=np.uint32)
     return df_counts
 
-def fisher_exact_test(df_counts, slc=False, time_threshold=18, testtype='less'):
+def fisher_exact_test(df_counts, time_threshold=18, testtype='less'):
     fisher_output = {}
     for primer in df_counts:
         fisher_output[primer] = fisher_exact_test_by_primer(df_counts[primer],
@@ -122,6 +119,17 @@ def write_lineage_info(fet,patient,rank,linkey,savedir):
                                                pvalue,
                                                fold_expansion,
                                                oddsratio))
+
+def get_expanded_lineages(df_fet, pvalue_thresh=1e-200):
+    expanded_lineages = []
+    for primer in df_fet:
+        conditions = ((df_fet[primer]['pvalue'] < pvalue_thresh)
+                      & (df_fet[primer]['early'] != 0)
+                      & (df_fet[primer]['late'] != 0))
+        expanded_linkeys = df_fet[primer][conditions].index.values.tolist()
+        expanded_linkeys = [tuple(list(linkey) + [primer]) for linkey in expanded_linkeys]
+        expanded_lineages += expanded_linkeys
+    return expanded_lineages
 
 def make_trees_for_expanded_lineages(lineages,patient,savedir):
     from get_input_for_trees import make_fastas_for_trees

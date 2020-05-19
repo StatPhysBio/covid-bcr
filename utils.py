@@ -151,6 +151,7 @@ def fasta_parse(fasta: str, patient='', timepoint='',
                 continue
 
         if oneline_collapsed:
+            sample = sample.split("-")[0]
             header_info = [uid+"="+CONST_SAMPLE_DICT[sample]['patient'],
                            cprimer, vprimer,abundance,
                            "TIME=" + str(CONST_SAMPLE_DICT[sample]['sample day']),
@@ -178,7 +179,7 @@ def unpickle(pickle_file):
     return pickled
 
 def get_files(f_dir, suffix):
-    files = [f_dir + f
+    files = [join(f_dir, f)
              for f in listdir(f_dir)
              if isfile(join(f_dir, f))
              and ".DS_Store" not in f
@@ -328,18 +329,6 @@ def get_severity(uid: str) -> str:
 
 def get_replicate(uid: str) -> str:
     return uid.split("|")[6].split("=")[-1]
-
-#def get_dupcounts(uid):
-#    return int(uid.split("_")[4].replace("dupcounts--",""))
-#
-#def get_time(uid):
-#    return int(uid.split("_")[3].replace("time--",""))
-#
-#def get_primer(uid):
-#    return uid.split("_")[2].replace("vprimer--","").replace("m", ",")
-#
-#def get_severity(uid):
-#    return uid.split("_")[5].replace("severity--","")
 
 def find_char(string, c):
     return [pos for pos, char in enumerate(string) if char == c]
