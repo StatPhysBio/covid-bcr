@@ -1,11 +1,6 @@
 import sonia
 from sonia.sonia_vjl import SoniaVJL
-import pickle
 import pandas as pd
-
-
-def get_patient(uid):
-    return int(uid.split("|")[0].split("-")[-1])
 
 def main():
     import argparse
@@ -18,15 +13,12 @@ def main():
     parser.add_argument('--in_gen', type=str,
                         help='path to gen csv file')
     parser.add_argument('--lineage_size', type=int,
-                        help='cutoff for minimum size of lineage')
+                        help='exclusive cutoff for minimum size of lineage')
     parser.add_argument('--epochs', type=int,
                         help='number of epochs. Default=50')
     parser.add_argument('--num_gen', type=int,
-                        help='number of gen. Default=2e6')
+                        help='number of gen. Default to generate is 2e5. Default of in_gen is all seqs.')
     args = parser.parse_args()
-    gen = pd.read_csv(args.in_gen)[['amino_acid','v_gene','j_gene']].values.tolist()
-    if args.num_gen is not None:
-        gen = gen[:args.num_gen]
     if args.lineage_size is None:
         min_size = 0
     else:
@@ -34,8 +26,34 @@ def main():
     data_df = pd.read_csv(args.in_data)
     trimmed_df = data_df[data_df['lineage_size'] > min_size]
     data = trimmed_df[['consensus_cdr3','v_gene','j_gene']].values.tolist()
+    print("Amount of data:", len(data))
 
-    qm = SoniaVJL(data_seqs=data,gen_seqs=gen,chain_type='humanIGH')
+    #  Upper bound for the amount of gen seqs.
+    #  Otherwise the probability of not having
+    #  a data seq in a batch (size 5e3 by default)
+    #  is non-neglible.
+    num_gen_seqs = 100*len(data)
+
+    if args.in_gen is not None:
+        gen = pd.read_csv(args.in_gen)[['amino_acid','v_gene','j_gene']].values.tolist()
+        if args.num_gen is not None:
+            if args.num_gen < num_gen_seqs:
+                num_gen_seqs = args.num_gen
+        print("Amount of gen:",num_gen_seqs)
+        qm = SoniaVJL(data_seqs=data,gen_seqs=gen[:num_gen_seqs],chain_type='humanIGH',
+                     include_indep_genes = True, include_joint_genes = False )
+    else:
+        qm = SoniaVJL(data_seqs=data, chain_type='humanIGH',
+                     include_indep_genes = True, include_joint_genes = False )
+        if args.num_gen is not None:
+            if args.num_gen < num_gen_seqs:
+                num_gen_seqs = args.num_gen
+            print("Amount of gen:",num_gen_seqs)
+            qm.add_generated_seqs(args.num_gen)
+        else:
+            num_gen_seqs = int(2e5)
+            print("Amount of gen:",num_gen_seqs)
+            qm.add_generated_seqs(num_gen_seqs)
     if args.epochs is None:
         epochs = 50
     else:
