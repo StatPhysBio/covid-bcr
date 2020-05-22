@@ -29,13 +29,17 @@ def main():
                         help='number of gen\n'
                         'Default to generate is 2e5.\n'
                         'Default of in_gen is all seqs.\n')
+    parser.add_argument('--custom_vdj_model', type=str,
+                        help='path to igor model files')
     args = parser.parse_args()
 
     models = ['vjl', 'length', 'leftright']
-    print(args.sonia_model)
+    if args.custom_vdj_model is not None:
+        custom_model = args.custom_vdj_model
+    else:
+        custom_model = None
     if args.sonia_model in models:
         model = args.sonia_model
-        print(model)
     else:
         model = 'vjl'
     if args.include_joint_genes is not None:
@@ -68,23 +72,23 @@ def main():
                 num_gen_seqs = args.num_gen
         print("Amount of gen:",num_gen_seqs)
         if model is 'vjl':
-            qm = SoniaVJL(data_seqs=data,gen_seqs=gen[:num_gen_seqs],chain_type='humanIGH',
+            qm = SoniaVJL(data_seqs=data,gen_seqs=gen[:num_gen_seqs],chain_type='humanIGH',custom_pgen_model=custom_model,
                          include_indep_genes=include_indep_genes, include_joint_genes=include_joint_genes)
         elif model is 'length':
-            qm = SoniaLengthPos(data_seqs=data,gen_seqs=gen[:num_gen_seqs],chain_type='humanIGH',
+            qm = SoniaLengthPos(data_seqs=data,gen_seqs=gen[:num_gen_seqs],chain_type='humanIGH',custom_pgen_model=custom_model,
                          include_indep_genes=include_indep_genes, include_joint_genes=include_joint_genes)
         elif model is 'leftright':
-            qm = SoniaLeftposRightPos(data_seqs=data,gen_seqs=gen[:num_gen_seqs],chain_type='humanIGH',
+            qm = SoniaLeftposRightPos(data_seqs=data,gen_seqs=gen[:num_gen_seqs],chain_type='humanIGH',custom_pgen_model=custom_model,
                      include_indep_genes=include_indep_genes, include_joint_genes=include_joint_genes)
     else:
         if model == 'vjl':
-            qm = SoniaVJL(data_seqs=data, chain_type='humanIGH',
+            qm = SoniaVJL(data_seqs=data, chain_type='humanIGH',custom_pgen_model=custom_model,
                          include_indep_genes=include_indep_genes, include_joint_genes=include_joint_genes)
         elif model == 'length':
-            qm = SoniaLengthPos(data_seqs=data, chain_type='humanIGH',
+            qm = SoniaLengthPos(data_seqs=data, chain_type='humanIGH',custom_pgen_model=custom_model,
                          include_indep_genes=include_indep_genes, include_joint_genes=include_joint_genes)
         elif model == 'leftright':
-            qm = SoniaLeftposRightpos(data_seqs=data, chain_type='humanIGH',
+            qm = SoniaLeftposRightpos(data_seqs=data, chain_type='humanIGH',custom_pgen_model=custom_model,
                          include_indep_genes=include_indep_genes, include_joint_genes =include_joint_genes)
         if args.num_gen is not None:
             if args.num_gen < num_gen_seqs:
