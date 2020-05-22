@@ -35,34 +35,17 @@ def get_primer_split_counts(lineages, patient_key):
     else:
         times = CONST_DATA_DICT[str(patient_key)]['sample day']
 
-    slc = type(lineages[list(lineages.keys())[0]]) == dict
+    for index,lineage in enumerate(lineages):
+        uids = [ann['unique_ids'][0] for ann in lineage]
+        count_dict,lineage_primer = get_counts_by_time(uids,times)
 
-    if not slc:
-        for vjl in lineages:
-            uids = [ann['unique_ids'][0] for ann in lineages[vjl]]
-            count_dict,lineage_primer = get_counts_by_time(uids,times)
+        if lineage_primer not in primer_split_counts["unique"]:
+            primer_split_counts["unique"][lineage_primer] = {}
+            primer_split_counts["abundance"][lineage_primer] = {}
+            primer_split_counts["singleton"][lineage_primer] = {}
 
-            if lineage_primer not in primer_split_counts["unique"]:
-                primer_split_counts["unique"][lineage_primer] = {}
-                primer_split_counts["abundance"][lineage_primer] = {}
-                primer_split_counts["singleton"][lineage_primer] = {}
-
-            for count_type in primer_split_counts:
-                primer_split_counts[count_type][lineage_primer][vjl] = count_dict[count_type]
-    else:
-        for vjl in lineages:
-            for rank in lineages[vjl]:
-                linkey = tuple(list(vjl)+[rank])
-                uids = [ann['unique_ids'][0] for ann in lineages[vjl][rank]]
-                count_dict, lineage_primer = get_counts_by_time(uids,times)
-
-                if lineage_primer not in primer_split_counts["unique"]:
-                    primer_split_counts["unique"][lineage_primer] = {}
-                    primer_split_counts["abundance"][lineage_primer] = {}
-                    primer_split_counts["singleton"][lineage_primer] = {}
-
-                for count_type in primer_split_counts:
-                    primer_split_counts[count_type][lineage_primer][linkey] = count_dict[count_type]
+        for count_type in primer_split_counts:
+            primer_split_counts[count_type][lineage_primer][index] = count_dict[count_type]
 
     #  Convert to dataframe
     df_counts = {}

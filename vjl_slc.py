@@ -10,11 +10,14 @@ def bin_vjl(anns, partis=None, abstar=None):
             v = ann["v_gene"].split("*")[0]
             j = ann["j_gene"].split("*")[0]
             l = ann["cdr3_length"]
-            key = (v,j,l)
+            if v not in vjl_dict:
+                vjl_dict[v] = {}
+            if j not in vjl_dict[v]:
+                vjl_dict[v][j] = {}
+            if l not in vjl_dict[v][j]:
+                vjl_dict[v][j][l] = []
 
-            if key not in vjl_dict:
-                vjl_dict[key] = []
-            vjl_dict[key].append(ann)
+            vjl_dict[v][j][l].append(ann)
         return vjl_dict
     elif abstar:
         for ann in anns:
@@ -106,20 +109,23 @@ def slc_vjl_bin(vjl_bin, partis=None, abstar=None, threshold=None):
     #  Put annotations in clusters
     clone_dict = {}
     for i, c in enumerate(clusters):
-        clone_dict.setdefault(c, []).extend(annotations_map[unique_cdr3s[i]])
+        clone_dict.setdefault(int(c), []).extend(annotations_map[unique_cdr3s[i]])
 
     #  Save clusters to lineage bin
     return clone_dict
 
 def slc_all_bins(vjl_dict, partis=None, abstar=None, threshold=None):
-    print(partis)
-    lineage_dict = {}
+    lineage_list = []
     if not threshold:
         threshold = 0.15
-    print(threshold)
-    for i,key in enumerate(vjl_dict):
-        lineage_dict[key] = slc_vjl_bin(vjl_dict[key], partis=partis, abstar=abstar, threshold=threshold)
-    return lineage_dict
+    for v in vjl_dict:
+        for j in vjl_dict[v]:
+            for l in vjl_dict[v][j]:
+                vjl_lineages = slc_vjl_bin(vjl_dict[v][j][l], partis=partis, abstar=abstar, threshold=threshold)
+                lineage_list += [v for _,v in vjl_lineages.items()]
+    #  Sort lineage by size of unique sequences
+    lineage_list.sort(key=len,reverse=True)
+    return lineage_list
 
 def vjl_slc(anns, partis=None, abstar=None, threshold=None):
     lineages = slc_all_bins(bin_vjl(anns, partis=partis, abstar=abstar),

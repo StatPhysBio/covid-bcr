@@ -7,6 +7,7 @@ from operator import itemgetter
 from jellyfish import hamming_distance
 import csv
 from Bio.SeqIO import parse
+import json
 
 CONST_SAMPLE_DICT = {'1': {'IgG-nCoV-RBD': -999.0, 'IgM-nCoV-RBD': -999.0, 'sample day': 0, 'round': 0, 'severity': 'Healthy', 'patient': '81'},
                      '2': {'IgG-nCoV-RBD': -999.0, 'IgM-nCoV-RBD': -999.0, 'sample day': 0, 'round': 0, 'severity': 'Healthy', 'patient': '82'},
@@ -169,6 +170,15 @@ def fasta_parse(fasta: str, patient='', timepoint='',
         headers.append(header)
         seqs.append(str(seq.seq))
     return seqs, headers
+
+def json_save(json_file, contents):
+    with open(json_file, 'w') as outfile:
+        json.dump(contents, outfile)
+
+def json_open(json_file):
+    with open(json_file) as f:
+        contents = json.load(f)
+    return contents
 
 def pickle_save(pickle_file, contents):
     with open(pickle_file, 'wb') as handle:
