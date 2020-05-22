@@ -11,9 +11,12 @@ def main():
     parser.add_argument('--sonia_dir', type=str,
                         help='path to sonia model for saving')
     parser.add_argument('--sonia_model', type=str,
-                        help='options: [vjl, length, leftright]')
+                        help='options: [vjl, length, leftright]\n'
+                        'default: vjl')
     parser.add_argument('--include_joint_genes', action='store_true',
-                        help='have features for combinations of vj, otherwise independent features for v and j')
+                        help='Have features for combinations of vj\n'
+                        'otherwise independent features for v and j.\n'
+                        'default: false')
     parser.add_argument('--in_data', type=str,
                        help='path to data csv file')
     parser.add_argument('--in_gen', type=str,
@@ -23,7 +26,9 @@ def main():
     parser.add_argument('--epochs', type=int,
                         help='number of epochs. Default=50')
     parser.add_argument('--num_gen', type=int,
-                        help='number of gen. Default to generate is 2e5. Default of in_gen is all seqs.')
+                        help='number of gen\n'
+                        'Default to generate is 2e5.\n'
+                        'Default of in_gen is all seqs.\n')
     args = parser.parse_args()
 
     models = ['vjl', 'length', 'leftright']
