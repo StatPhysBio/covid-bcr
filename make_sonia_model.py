@@ -1,5 +1,7 @@
 import sonia
 from sonia.sonia_vjl import SoniaVJL
+from sonia.sonia_leftpos_rightpos import SoniaLeftposRightpos
+from sonia.sonia_length_pos import SoniaLengthPos
 import pandas as pd
 
 def main():
@@ -8,6 +10,10 @@ def main():
         description='create sonia model')
     parser.add_argument('--sonia_dir', type=str,
                         help='path to sonia model for saving')
+    parser.add_argument('--sonia_model', type=str,
+                        help='options: [vjl, length, leftright]')
+    parser.add_argument('--include_joint_genes', action='store_true',
+                        help='have features for combinations of vj, otherwise independent features for v and j')
     parser.add_argument('--in_data', type=str,
                        help='path to data csv file')
     parser.add_argument('--in_gen', type=str,
@@ -19,10 +25,26 @@ def main():
     parser.add_argument('--num_gen', type=int,
                         help='number of gen. Default to generate is 2e5. Default of in_gen is all seqs.')
     args = parser.parse_args()
+
+    models = ['vjl', 'length', 'leftright']
+    print(args.sonia_model)
+    if args.sonia_model in models:
+        model = args.sonia_model
+        print(model)
+    else:
+        model = 'vjl'
+    if args.include_joint_genes is not None:
+        include_joint_genes = args.include_joint_genes
+        include_indep_genes = not args.include_joint_genes
+    else:
+        include_join_genes = False
+        include_indep_genes = True
     if args.lineage_size is None:
         min_size = 0
     else:
         min_size = args.lineage_size
+    print("joint genes", include_joint_genes)
+    print("indep genes", include_indep_genes)
     data_df = pd.read_csv(args.in_data)
     trimmed_df = data_df[data_df['lineage_size'] > min_size]
     data = trimmed_df[['consensus_cdr3','v_gene','j_gene']].values.tolist()
@@ -40,11 +62,25 @@ def main():
             if args.num_gen < num_gen_seqs:
                 num_gen_seqs = args.num_gen
         print("Amount of gen:",num_gen_seqs)
-        qm = SoniaVJL(data_seqs=data,gen_seqs=gen[:num_gen_seqs],chain_type='humanIGH',
-                     include_indep_genes = True, include_joint_genes = False )
+        if model is 'vjl':
+            qm = SoniaVJL(data_seqs=data,gen_seqs=gen[:num_gen_seqs],chain_type='humanIGH',
+                         include_indep_genes=include_indep_genes, include_joint_genes=include_joint_genes)
+        elif model is 'length':
+            qm = SoniaLengthPos(data_seqs=data,gen_seqs=gen[:num_gen_seqs],chain_type='humanIGH',
+                         include_indep_genes=include_indep_genes, include_joint_genes=include_joint_genes)
+        elif model is 'leftright':
+            qm = SoniaLeftposRightPos(data_seqs=data,gen_seqs=gen[:num_gen_seqs],chain_type='humanIGH',
+                     include_indep_genes=include_indep_genes, include_joint_genes=include_joint_genes)
     else:
-        qm = SoniaVJL(data_seqs=data, chain_type='humanIGH',
-                     include_indep_genes = True, include_joint_genes = False )
+        if model == 'vjl':
+            qm = SoniaVJL(data_seqs=data, chain_type='humanIGH',
+                         include_indep_genes=include_indep_genes, include_joint_genes=include_joint_genes)
+        elif model == 'length':
+            qm = SoniaLengthPos(data_seqs=data, chain_type='humanIGH',
+                         include_indep_genes=include_indep_genes, include_joint_genes=include_joint_genes)
+        elif model == 'leftright':
+            qm = SoniaLeftposRightpos(data_seqs=data, chain_type='humanIGH',
+                         include_indep_genes=include_indep_genes, include_joint_genes =include_joint_genes)
         if args.num_gen is not None:
             if args.num_gen < num_gen_seqs:
                 num_gen_seqs = args.num_gen

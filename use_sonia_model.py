@@ -79,7 +79,7 @@ def main():
 
     save_dir = args.sonia_dir
     if args.out_dir is not None:
-        save_dir = sargs.out_dir
+        save_dir = args.out_dir
     qm = SoniaVJL(load_dir=args.sonia_dir, chain_type='humanIGH')
     gn = SequenceGeneration(qm)
 
@@ -92,12 +92,16 @@ def main():
         ev = EvaluateModel(qm)
         Q_out, pgen_out, ppost_out = evaluate_seq(ev, qm.data_seqs)
         save_name = os.path.join(save_dir, 'model_data_eval.csv')
-        save_output(save_name, post_seqs, Q=Q_out, pgen=pgen_out, ppost=ppost_out)
+        save_output(save_name, qm.data_seqs, Q=Q_out, pgen=pgen_out, ppost=ppost_out)
     if args.evaluate_gen_for_model:
         ev = EvaluateModel(qm)
-        Q_out, pgen_out, ppost_out = evaluate_seq(ev, qm.gen_seqs)
+        if args.num_seqs is not None:
+            num_to_eval = args.num_seqs
+        else:
+            num_to_eval = len(qm.gen_seqs)
+        Q_out, pgen_out, ppost_out = evaluate_seq(ev, qm.gen_seqs[:num_to_eval])
         save_name = os.path.join(save_dir, 'model_gen_eval.csv')
-        save_output(save_name, post_seqs, Q=Q_out, pgen=pgen_out, ppost=ppost_out)
+        save_output(save_name, qm.gen_seqs[:num_to_eval], Q=Q_out, pgen=pgen_out, ppost=ppost_out)
 
     if args.evaluate:
         ev = EvaluateModel(qm)
