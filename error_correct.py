@@ -15,6 +15,9 @@ def get_abundance(uid: str) -> int:
 def get_time(uid: str) -> int:
     return int(uid.split("|")[4].split("=")[-1])
 
+def get_replicate(uid: str) -> int:
+    return int(uid.split("|")[6].split("=")[-1])
+
 def fasta_parse(fasta: str) -> Tuple[List[str], List[str]]:
     uids = []
     seqs = []
@@ -42,7 +45,53 @@ def sort_data_by_abundance(uids: List[str], seqs: List[str]) -> Tuple[List[str],
                                        reverse=True)]
     return sorted_uids, sorted_seqs
 
-def error_correct(uids: List[str], seqs: List[str], d_tol: int = 1, a_tol: np.float32 = None) -> Tuple[List[str], List[str]]:
+def error_correct_marginal(uids: List[str], seqs: List[str],
+                           delta_r: np.float32 = 1.0,
+                           delta_a: np.float32 = 1.0)
+                          -> Tuple[List[str], List[str]]:
+    #  Sort by descending abundance
+    sorted_uids, sorted_seqs = sort_data_by_abundance(uids, seqs)
+    sorted_uids = sorted(uids, key=lambda u: get_abundance(u), reverse=True)
+    sorted_seqs = [seq
+                   for _,seq in sorted(zip(uids,seqs),
+                                       key=lambda pair: get_abundance(pair[0]),
+                                       reverse=True)]
+    sorted_abundances = [get_abundance(u) for u in sorted_uids]
+
+    for i,seq1 in enumerate(sorted_seqs):
+        if sorted_abundances[i] == 0:
+            continue
+        for j,seq2 in reversed(list(enumerate(sorted_seqs))):
+            if i == j:
+                break
+            if (sorted_abundances[i] == sorted_abundances[j]
+                or sorted_abundances[j] == 0):
+                continue
+            abundance_log_ratio = (np.log10(sorted_abundances[i])
+                                   - np.log10(sorted_abundances[j]))
+            if 1 / abundance_log_ratio > delta_r:
+                break
+            if sorted_abundances[j] / abundance_log_ratio > delta_a:
+                break
+            d = hamming_distance(seq1, seq2)
+            if d / abundance_log_ratio <= delta_r:
+                sorted_abundances[i] += sorted_abundances[j]
+                sorted_abundances[j] = 0
+
+    #  Get remaining sequences and updated uids
+    remaining_seqs = []
+    updated_uids = []
+
+    for index, abund in enumerate(sorted_abundances):
+        if abund == 0:
+            continue
+        remaining_seqs.append(sorted_seqs[index])
+        updated_uids.append(update_uid(sorted_uids[index], sorted_abundances[index]))
+    return updated_uids, remaining_seqs
+
+def error_correct_total(uids: List[str], seqs: List[str],
+                  d_tol: int = 1, a_tol: np.float32 = None)
+                  -> Tuple[List[str], List[str]]:
     if a_tol is None:
         a_tol = 1.0
 
@@ -55,29 +104,21 @@ def error_correct(uids: List[str], seqs: List[str], d_tol: int = 1, a_tol: np.fl
                                        reverse=True)]
     sorted_abundances = [get_abundance(u) for u in sorted_uids]
 
-    parent_child_dict = {}
     for i,seq1 in enumerate(sorted_seqs):
         if sorted_abundances[i] == 0:
             continue
-        parent_child_dict[(i, seq1)] = []
         for j,seq2 in reversed(list(enumerate(sorted_seqs))):
             if i == j:
-                continue
-
+                break
             if sorted_abundances[j] == 0:
                 continue
-
             abundance_ratio = sorted_abundances[i] / sorted_abundances[j]
             if abundance_ratio < a_tol:
                 break
-
             if hamming_distance(seq1, seq2) <= d_tol:
                 parent_child_dict[(i, seq1)].append((j, seq2))
                 sorted_abundances[i] += sorted_abundances[j]
                 sorted_abundances[j] = 0
-
-        if not parent_child_dict[(i, seq1)]:
-            del parent_child_dict[(i, seq1)]
 
     #  Get remaining sequences and updated uids
     remaining_seqs = []
@@ -91,14 +132,27 @@ def error_correct(uids: List[str], seqs: List[str], d_tol: int = 1, a_tol: np.fl
     return updated_uids, remaining_seqs
 
 def group_data(uids: List[str], seqs: List[str]):
-    #  Group by sequence length, c primer, and v primer
+    #  Group by sequence length, c primer, v primer,
+    #  time, and replicate
+    num_header_info = len(uids[0]split("|"))
+    if num_header_info == 7:
+        key_func=lambda h_in,s_in: (len(s_in), get_cprimer(h_in),
+                                    get_vprimer(h_in), get_time(h_in),
+                                    get_replicate(h_in))
+    elif num_header_info >= 5:
+        key_func=lambda h_in,s_in: (len(s_in), get_cprimer(h_in),
+                                    get_vprimer(h_in), get_time(h_in))
+    elif num_header_info == 4:
+        key_func=lambda h_in,s_in: (len(s_in), get_cprimer(h_in),
+                                    get_vprimer(h_in))
+    elif num_header_info < 4:
+        print("Missing information in header.\n",
+              "Cannot group sequences correctly." )
+        return
+
     grouped_data = {}
     for u,s in zip(uids, seqs):
-        cprimer = get_cprimer(u)
-        vprimer = get_vprimer(u)
-        time = get_time(u)
-        slen = len(s)
-        key = (slen, cprimer, vprimer, time)
+        key = key_func(u,s)
         if key not in grouped_data:
             grouped_data[key] = {'uids': [], 'sequences': []}
         grouped_data[key]['uids'].append(u)
