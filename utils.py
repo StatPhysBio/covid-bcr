@@ -210,6 +210,8 @@ def create_dir(path):
 def create_new_fasta(save_name, headers, sequences):
     with open(save_name, "w") as new_fasta:
         for i, header in enumerate(headers):
+            if header[0] != ">":
+                header = ">" + header
             new_fasta.write(header + "\n")
             new_fasta.write(sequences[i] + "\n")
 
@@ -312,7 +314,7 @@ def convert_header(header):
     time = header_split[3].split("--")[-1]
     abundance = header_split[4].split("--")[-1]
     severity = header_split[5].split("--")[-1]
-    return "|".join([seq_id + "-" + patient_num,
+    return "|".join([seq_id + "=" + patient_num,
                      'CPRIMER=CHG-R',
                      'VPRIMER='+vprimer,
                      'DUPCOUNT='+abundance,
