@@ -24,10 +24,37 @@ def get_counts_by_time(uids, times):
     lineage_primer = Counter(vprimers).most_common(1)[0][0]
     return count_dict,lineage_primer
 
-def get_primer_split_counts(lineages, patient_key):
+def get_counts_by_time_replicate(uids, times):
+    count_dict = {"unique": {},
+                 "abundance": {},
+                 "singleton": {}}
+    vprimers = [None]*len(uids)
+    for ti in times:
+        for r in range(0,3):
+            count_dict['unique'][(ti,r)] = 0
+            count_dict['abundance'][(ti,r)] = 0
+            count_dict['singleton'][(ti,r)] = 0
+
+    for i,u in enumerate(uids):
+        vprimers[i] = get_vprimer(u)
+        ti = get_time(u)
+        rep = get_replicate(u)
+        count_dict['unique'][(ti,rep)] += 1
+        abundance = get_abundance(u)
+        count_dict['abundance'][(ti,rep)] += abundance
+        if abundance == 1:
+            count_dict['singleton'][(ti,rep)] += 1
+    lineage_primer = Counter(vprimers).most_common(1)[0][0]
+    return count_dict,lineage_primer
+
+def get_primer_split_counts(lineages, patient_key, rep=False):
     primer_split_counts = {"unique": {},
                            "abundance": {},
                            "singleton": {}}
+    if rep:
+        count_func = get_counts_by_time_replicate
+    else:
+        count_func = get_counts_by_time
     if type(patient_key) == list:
         times = []
         for pkey in patient_key:
@@ -35,17 +62,16 @@ def get_primer_split_counts(lineages, patient_key):
     else:
         times = CONST_DATA_DICT[str(patient_key)]['sample day']
 
-    for index,lineage in enumerate(lineages):
+    for key in lineages:
+        lineage = lineages[key]
         uids = [ann['unique_ids'][0] for ann in lineage]
-        count_dict,lineage_primer = get_counts_by_time(uids,times)
-
+        count_dict,lineage_primer = count_func(uids,times)
         if lineage_primer not in primer_split_counts["unique"]:
             primer_split_counts["unique"][lineage_primer] = {}
             primer_split_counts["abundance"][lineage_primer] = {}
             primer_split_counts["singleton"][lineage_primer] = {}
-
         for count_type in primer_split_counts:
-            primer_split_counts[count_type][lineage_primer][index] = count_dict[count_type]
+            primer_split_counts[count_type][lineage_primer][key] = count_dict[count_type]
 
     #  Convert to dataframe
     df_counts = {}
@@ -54,7 +80,11 @@ def get_primer_split_counts(lineages, patient_key):
         for lineage_primer in primer_split_counts[count_type]:
             df_counts[count_type][lineage_primer] = pd.DataFrame.from_dict(primer_split_counts[count_type][lineage_primer],
                                                                                       orient='index',dtype=np.uint32)
+            df = df_counts[count_type][lineage_primer]
+            df = df.loc[:, (df != 0).any(axis=0)]
+            df_counts[count_type][lineage_primer] = df
     return df_counts
+
 
 def fisher_exact_test(df_counts, time_threshold=18, testtype='less'):
     fisher_output = {}
@@ -63,6 +93,49 @@ def fisher_exact_test(df_counts, time_threshold=18, testtype='less'):
                                                             time_threshold=time_threshold,
                                                             testtype=testtype)
     return fisher_output
+
+def fisher_exact_test_replicate(df_counts, testtype='two-sided'):
+    fisher_output = {}
+    for primer in df_counts:
+        fisher_output[primer] = fisher_exact_test_by_primer_replicate(df_counts[primer],
+                                                                      testtype=testtype)
+    return fisher_output
+
+def fisher_exact_test_by_primer_replicate(df_counts_primer,testtype='two-sided'):
+    df = df_counts_primer.sort_index()
+    col_list= list(df)
+    times = list(set([c[0] for c in col_list]))
+    totals = [sum(df[c]) for c in col_list]
+    for i,c in enumerate(col_list):
+        df[(c[0],c[1]+0.1)] = totals[i] - df[c]
+
+    #  Dict of how many replicates at each timepoint
+    rep_dict = {}
+    for key in list(df):
+        if key[0] not in rep_dict:
+            rep_dict[key[0]] = []
+        if key[1] % 1 == 0:
+            rep_dict[key[0]].append(key[1])
+    #  Delete any timepoints with only one rep
+    single_rep_ti = [ti for ti in rep_dict if len(rep_dict[ti]) < 2]
+    for ti in single_rep_ti:
+        del rep_dict[ti]
+    for idx,row in df.iterrows():
+        for ti in rep_dict:
+            for index, rep_num1 in enumerate(rep_dict[ti]):
+                for rep_num2 in rep_dict[ti][index+1:]:
+                    oddsratio,pvalue = stats.fisher_exact([[row[(ti,rep_num1)],row[(ti,rep_num1)]],
+                                    [row[(ti,rep_num2)],row[(ti,rep_num2)]]],
+                                   alternative='two-sided')
+                    key = "("+str(rep_num1)+","+str(rep_num2)+")"
+                    df.at[idx,(ti,'oddsratio'+key)] = oddsratio
+                    df.at[idx,(ti,'pvalue'+key)] = pvalue
+    #for ti in times:
+    #    col_ti = list(df[ti])
+    #    for c in col_ti:
+    #        if 'oddsratio' in c:
+    #            df[(ti,c)] = np.reciprocal(df[(ti,c)])
+    return df
 
 def fisher_exact_test_by_primer(df_counts_primer,time_threshold=18,testtype='less'):
     df = df_counts_primer.sort_index()
@@ -102,7 +175,6 @@ def write_lineage_info(fet,patient,rank,linkey,savedir):
                                                pvalue,
                                                fold_expansion,
                                                oddsratio))
-
 def get_expanded_lineages(df_fet, pvalue_thresh=1e-200):
     expanded_lineages = []
     for primer in df_fet:
@@ -110,7 +182,8 @@ def get_expanded_lineages(df_fet, pvalue_thresh=1e-200):
                       & (df_fet[primer]['early'] != 0)
                       & (df_fet[primer]['late'] != 0))
         expanded_linkeys = df_fet[primer][conditions].index.values.tolist()
-        expanded_linkeys = [tuple(list(linkey) + [primer]) for linkey in expanded_linkeys]
+        print(expanded_linkeys)
+        expanded_linkeys = [linkey for linkey in expanded_linkeys]
         expanded_lineages += expanded_linkeys
     return expanded_lineages
 

@@ -25,11 +25,16 @@ def bin_vjl(anns, partis=None, abstar=None):
             j = ann["j_gene"]["gene"]
             l = len(ann["junc_nt"])
             key = (v,j,l)
+            if v not in vjl_dict:
+                vjl_dict[v] = {}
+            if j not in vjl_dict[v]:
+                vjl_dict[v][j] = {}
+            if l not in vjl_dict[v][j]:
+                vjl_dict[v][j][l] = []
 
-            if key not in vjl_dict:
-                vjl_dict[key] = []
-            vjl_dict[key].append(ann)
+            vjl_dict[v][j][l].append(ann)
         return vjl_dict
+
     else:
         print("Need an option for the annotation input!")
 
@@ -116,16 +121,23 @@ def slc_vjl_bin(vjl_bin, partis=None, abstar=None, threshold=None):
 
 def slc_all_bins(vjl_dict, partis=None, abstar=None, threshold=None):
     lineage_list = []
+    lineage_dict = {}
     if not threshold:
         threshold = 0.15
     for v in vjl_dict:
+        if v not in lineage_dict:
+            lineage_dict[v] = {}
         for j in vjl_dict[v]:
+            if j not in lineage_dict[v]:
+                lineage_dict[v][j] = {}
             for l in vjl_dict[v][j]:
-                vjl_lineages = slc_vjl_bin(vjl_dict[v][j][l], partis=partis, abstar=abstar, threshold=threshold)
-                lineage_list += [v for _,v in vjl_lineages.items()]
+                if l not in lineage_dict[v][j]:
+                    lineage_dict[v][j][l] = {}
+                lineage_dict[v][j][l] = slc_vjl_bin(vjl_dict[v][j][l], partis=partis, abstar=abstar, threshold=threshold)
+                #lineage_list += [v for _,v in vjl_lineages.items()]
     #  Sort lineage by size of unique sequences
-    lineage_list.sort(key=len,reverse=True)
-    return lineage_list
+    #lineage_list.sort(key=len,reverse=True)
+    return lineage_dict
 
 def vjl_slc(anns, partis=None, abstar=None, threshold=None):
     lineages = slc_all_bins(bin_vjl(anns, partis=partis, abstar=abstar),

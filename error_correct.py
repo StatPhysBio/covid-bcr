@@ -52,9 +52,12 @@ def error_correct_marginal(uids: List[str], seqs: List[str],
     sorted_abundances = [get_abundance(u) for u in sorted_uids]
     parent_indices = np.where(np.array(sorted_abundances) >= 10 ** (1 / delta_r))[0]
 
+    parent_child = {}
+
     for i in parent_indices:
         if sorted_abundances[i] == 0:
             continue
+        parent_name = sorted_uids[i].split("|")[0]
         for j,seq2 in reversed(list(enumerate(sorted_seqs))):
             if i == j:
                 break
@@ -70,6 +73,9 @@ def error_correct_marginal(uids: List[str], seqs: List[str],
             seq1 = sorted_seqs[i]
             d = hamming_distance(seq1, seq2)
             if d / abundance_log_ratio <= delta_r:
+                if parent_name not in parent_child:
+                    parent_child[parent_name] = []
+                parent_child[parent_name].append(sorted_uids[j].split("|")[0])
                 sorted_abundances[i] += sorted_abundances[j]
                 sorted_abundances[j] = 0
 
@@ -82,7 +88,7 @@ def error_correct_marginal(uids: List[str], seqs: List[str],
             continue
         remaining_seqs.append(sorted_seqs[index])
         updated_uids.append(update_uid(sorted_uids[index], sorted_abundances[index]))
-    return updated_uids, remaining_seqs
+    return updated_uids, remaining_seqs, parent_child
 
 def error_correct_total(uids: List[str], seqs: List[str],
                   d_tol: int = 1, a_tol: np.float32 = None) -> Tuple[List[str], List[str]]:
@@ -97,10 +103,11 @@ def error_correct_total(uids: List[str], seqs: List[str],
                                        key=lambda pair: get_abundance(pair[0]),
                                        reverse=True)]
     sorted_abundances = [get_abundance(u) for u in sorted_uids]
-
+    parent_child = {}
     for i,seq1 in enumerate(sorted_seqs):
         if sorted_abundances[i] == 0:
             continue
+        parent_name = sorted_uids[i].split("|")[0]
         for j,seq2 in reversed(list(enumerate(sorted_seqs))):
             if i == j:
                 break
@@ -110,6 +117,9 @@ def error_correct_total(uids: List[str], seqs: List[str],
             if abundance_ratio < a_tol:
                 break
             if hamming_distance(seq1, seq2) <= d_tol:
+                if parent_name not in parent_child:
+                    parent_child[parent_name] = []
+                parent_child[parent_name].append(sorted_uids[j].split("|")[0])
                 sorted_abundances[i] += sorted_abundances[j]
                 sorted_abundances[j] = 0
 
@@ -122,7 +132,7 @@ def error_correct_total(uids: List[str], seqs: List[str],
             continue
         remaining_seqs.append(sorted_seqs[index])
         updated_uids.append(update_uid(sorted_uids[index], sorted_abundances[index]))
-    return updated_uids, remaining_seqs
+    return updated_uids, remaining_seqs, parent_child
 
 def group_data(uids: List[str], seqs: List[str]):
     #  Group by sequence length, c primer, v primer,
@@ -142,10 +152,13 @@ def group_data(uids: List[str], seqs: List[str]):
         print("Missing information in header.\n",
               "Cannot group sequences correctly." )
         return
-
     grouped_data = {}
+    counter = 0
     for u,s in zip(uids, seqs):
         key = key_func(u,s)
+        if counter == 0:
+            print(key)
+            counter += 1
         if key not in grouped_data:
             grouped_data[key] = {'uids': [], 'sequences': []}
         grouped_data[key]['uids'].append(u)

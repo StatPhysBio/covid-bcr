@@ -135,14 +135,14 @@ def fasta_parse(fasta: str, patient='', timepoint='',
     seqs = []
     headers = []
 
-    if oneline_collapsed:
+    if oneline_collapsed and replicate == '':
         filename = fasta.split("/")[-1]
         sample = filename.split("_")[0].replace("S","")
         if "-" in sample:
             replicate = sample.split("-")[-1]
         else:
             replicate = '1'
-
+    print(replicate)
     for seq in parse(fasta, 'fasta'):
         uid, cprimer, vprimer, abundance = (x for x in seq.id.split('|'))
 
@@ -151,7 +151,14 @@ def fasta_parse(fasta: str, patient='', timepoint='',
             if abundance_int == 1:
                 continue
 
-        if oneline_collapsed:
+        if oneline_collapsed and not replicate:
+            sample = sample.split("-")[0]
+            header_info = [uid+"="+CONST_SAMPLE_DICT[sample]['patient'],
+                           cprimer, vprimer,abundance,
+                           "TIME=" + str(CONST_SAMPLE_DICT[sample]['sample day']),
+                           "SEVERITY=" + str(CONST_SAMPLE_DICT[sample]['severity']),
+                           "REPLICATE=" + replicate]
+        if oneline_collapsed and replicate:
             sample = sample.split("-")[0]
             header_info = [uid+"="+CONST_SAMPLE_DICT[sample]['patient'],
                            cprimer, vprimer,abundance,
@@ -180,6 +187,33 @@ def json_open(json_file):
         contents = json.load(f)
     return contents
 
+def load_abstar(abstar_file):
+    json_data = []
+    num_N = 0
+    len_fail = 0
+    d_fail = 0
+    cdr3_fail = 0
+    for line in open(abstar_file, 'r'):
+        if len(line) < 10:
+            len_fail += 1
+            continue
+        if 'd_gene' not in line:
+            d_fail += 1
+            continue
+        data_dict = json.loads(line)
+        if 'cdr3_nt' not in data_dict:
+            cdr3_fail += 1
+            continue
+        if data_dict['raw_input'].strip("N").count("N") != 0:
+            num_N += 1
+            continue
+        json_data.append(data_dict)
+    print("Length fail",len_fail,
+          "\nD gene fail",d_fail,
+          "\nN filtered", num_N,
+          "\nCDR3 fail",cdr3_fail)
+    return json_data
+
 def pickle_save(pickle_file, contents):
     with open(pickle_file, 'wb') as handle:
         pickle.dump(contents, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -192,6 +226,15 @@ def get_files(f_dir, suffix):
     files = [join(f_dir, f)
              for f in listdir(f_dir)
              if isfile(join(f_dir, f))
+             and ".DS_Store" not in f
+             and suffix in f]
+    files.sort()
+    return files
+
+def get_dirs(f_dir, suffix):
+    files = [join(f_dir, f)
+             for f in listdir(f_dir)
+             if isdir(join(f_dir, f))
              and ".DS_Store" not in f
              and suffix in f]
     files.sort()
@@ -339,47 +382,11 @@ def get_time(uid: str) -> int:
 def get_severity(uid: str) -> str:
     return uid.split("|")[5].split("=")[-1]
 
-def get_replicate(uid: str) -> str:
-    return uid.split("|")[6].split("=")[-1]
-
-def find_char(string, c):
-    return [pos for pos, char in enumerate(string) if char == c]
-
-def get_n_at_end(n_list, s_len):
-    last_index = s_len - 1
-    n_list_rev = list(reversed(n_list))
-    end_buffer = []
-    n_list_rev_copy = n_list_rev.copy()
-    for i, loc in enumerate(n_list_rev):
-        if loc == last_index - i:
-            end_buffer.append(last_index - i)
-    return list(reversed(end_buffer))
-
-def get_n_at_beginning(n_list):
-    beginning_buffer = []
-    for i, loc in enumerate(n_list):
-        if loc == i:
-            beginning_buffer.append(i)
-    return beginning_buffer
-
-def get_num_n_at_start_and_end(seq):
-    n_locs = find_char(seq, "N")
-    num_start = len(get_n_at_beginning(n_locs))
-    num_end = len(get_n_at_end(n_locs, len(seq)))
-    return num_start, num_end
+def get_replicate(uid: str) -> int:
+    return int(uid.split("|")[6].split("=")[-1])
 
 def remove_N_buffer(seq):
-    n_locs = find_char(seq, "N")
-    beg_n = get_n_at_beginning(n_locs)
-    n_locs = [n for n in n_locs if n not in beg_n]
-    end_n = get_n_at_end(n_locs, len(seq))
-    lower_bound = 0
-    if beg_n:
-        lower_bound = np.max(beg_n) +1
-    upper_bound = len(seq)
-    if end_n:
-        upper_bound = np.min(end_n)
-    return seq[lower_bound:upper_bound]
+    return seq.strip("N")
 
 def fix_N_padding(seq_to_fix, new_num_n_start, new_num_n_end):
     seq_no_pad = remove_N_buffer(seq_to_fix)
