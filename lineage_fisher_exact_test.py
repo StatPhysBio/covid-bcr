@@ -47,7 +47,7 @@ def get_counts_by_time_replicate(uids, times):
     lineage_primer = Counter(vprimers).most_common(1)[0][0]
     return count_dict,lineage_primer
 
-def get_primer_split_counts(lineages, patient_key, rep=False):
+def get_primer_split_counts(lineages, patient_key, rep=False, abstar=False):
     primer_split_counts = {"unique": {},
                            "abundance": {},
                            "singleton": {}}
@@ -64,7 +64,10 @@ def get_primer_split_counts(lineages, patient_key, rep=False):
 
     for key in lineages:
         lineage = lineages[key]
-        uids = [ann['unique_ids'][0] for ann in lineage]
+        if abstar:
+            uids = [ann['seq_id'] for ann in lineage]
+        else:
+            uids = [ann['unique_ids'][0] for ann in lineage]
         count_dict,lineage_primer = count_func(uids,times)
         if lineage_primer not in primer_split_counts["unique"]:
             primer_split_counts["unique"][lineage_primer] = {}

@@ -1,7 +1,7 @@
 import pandas as pd
 from lineage_fisher_exact_test import *
 from error_correct import *
-
+from utils import *
 def remove_N_sequences(annotations):
     no_N = []
     for ann in annotations:
@@ -51,7 +51,11 @@ def error_correction(annotations):
         if vprimer == v_gene:
             continue
         ec_anns.append(ann_dict[key])
-   return ec_anns
+    return ec_anns
+
+def naive_cdr3(ann):
+    cp = ann['codon_positions']
+    return ann['naive_seq'][cp['v']:cp['j']+3]
 
 def get_common_naive_partis(lineage):
     naives = [ann['naive_seq'] for ann in lineage]
@@ -87,11 +91,10 @@ def merge_same_replicate_anns(lin):
     seq_dict = {}
     for ann in lin:
         raw_seq = ann['input_seqs'][0].strip("N")
-        rep = get_replicate(ann['unique_ids'][0])
-        ti = get_time(ann['unique_ids'][0])
-        if (raw_seq,rep,time) not in seq_dict:
-            seq_dict[(raw_seq,rep,time)] = []
-        seq_dict[(raw_seq,rep,time)].append(ann)
+        time = get_time(ann['unique_ids'][0])
+        if (raw_seq,time) not in seq_dict:
+            seq_dict[(raw_seq,time)] = []
+        seq_dict[(raw_seq,time)].append(ann)
     s_abundance = 0
     for key in seq_dict:
         if len(seq_dict[key]) > 1:
@@ -99,6 +102,19 @@ def merge_same_replicate_anns(lin):
                              for ann in seq_dict[key]])
             s_abundance += abundance
             ann_copy = seq_dict[key][0]
+            germ_cdr3 = naive_cdr3(ann_copy)
+            rep_use = get_replicate(ann_copy['unique_ids'][0])
+            for a in seq_dict[key][1:]:
+                r = get_replicate(a['unique_ids'][0])
+                cdr3_a = naive_cdr3(a)
+                if cdr3_a != germ_cdr3:
+                    r = get_replicate(a['unique_ids'][0])
+                    print("oh no", rep_use, r)
+                    print(rep_use,ann_copy['input_seqs'][0],germ_cdr3)
+                    print(r, a['input_seqs'][0], cdr3_a)
+                    print("\n\n")
+                else:
+                    print("match", rep_use, r)
             ann_copy['unique_ids'][0] = update_uid(ann_copy['unique_ids'][0], abundance)
             merged_lin.append(ann_copy)
         else:
@@ -113,6 +129,13 @@ def merge_replicates(lineages):
                 for cluster_id in lineages[v][j][l]:
                     out_lins[(v,j,l,cluster_id)] = merge_same_replicate_anns(lineages[v][j][l][cluster_id])
     return out_lins
+CUTOFF_DICT = {'11': 10, '4': 35,'21': 20,
+               '6': 18,'15': 18,'22': 18,
+               '9':20,'49':33,'117':10,
+               '196':10,'212':10,'271':4,
+               '166':10,'187':11,'2':7,
+               '42':18,'12':45,'17':25,
+               '7':40,'81':0,'82':0,'83':0}
 
 def get_expansion(lineages, patient):
     CUTOFF_DICT = {'11': 10, '4': 35,'21': 20,

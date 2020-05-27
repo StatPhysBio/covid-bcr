@@ -275,6 +275,12 @@ def sort_dict(unsorted_dict):
     D = OrderedDict(sorted(unsorted_dict.items(), key=itemgetter(0)))
     return D
 
+def sort_dict_by_value(x):
+    return {k: v
+            for k, v in sorted(x.items(),
+                               key=lambda item: item[1], reverse=True)}
+
+
 def get_data_counter(data, multiplicity=False):
     data_counter = {}
     if not multiplicity:
