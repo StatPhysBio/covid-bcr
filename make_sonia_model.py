@@ -66,19 +66,23 @@ def main():
     num_gen_seqs = 100*len(data)
 
     if args.in_gen is not None:
+        print("here")
         gen = pd.read_csv(args.in_gen)[['amino_acid','v_gene','j_gene']].values.tolist()
         if args.num_gen is not None:
-            if args.num_gen < num_gen_seqs:
+            if args.num_gen > num_gen_seqs:
                 num_gen_seqs = args.num_gen
+        else:
+            if len(gen) < num_gen_seqs:
+                num_gen_seqs = len(gen)
         print("Amount of gen:",num_gen_seqs)
-        if model is 'vjl':
+        if model == 'vjl':
             qm = SoniaVJL(data_seqs=data,gen_seqs=gen[:num_gen_seqs],chain_type='humanIGH',custom_pgen_model=custom_model,
                          include_indep_genes=include_indep_genes, include_joint_genes=include_joint_genes)
-        elif model is 'length':
+        elif model == 'length':
             qm = SoniaLengthPos(data_seqs=data,gen_seqs=gen[:num_gen_seqs],chain_type='humanIGH',custom_pgen_model=custom_model,
                          include_indep_genes=include_indep_genes, include_joint_genes=include_joint_genes)
-        elif model is 'leftright':
-            qm = SoniaLeftposRightPos(data_seqs=data,gen_seqs=gen[:num_gen_seqs],chain_type='humanIGH',custom_pgen_model=custom_model,
+        elif model == 'leftright':
+            qm = SoniaLeftposRightpos(data_seqs=data,gen_seqs=gen[:num_gen_seqs],chain_type='humanIGH',custom_pgen_model=custom_model,
                      include_indep_genes=include_indep_genes, include_joint_genes=include_joint_genes)
     else:
         if model == 'vjl':

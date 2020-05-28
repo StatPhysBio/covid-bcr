@@ -399,6 +399,15 @@ def fix_N_padding(seq_to_fix, new_num_n_start, new_num_n_end):
     fixed_seq = "".join("N"*new_num_n_start)+seq_no_pad + "".join("N"*new_num_n_end)
     return fixed_seq
 
+def convert_lineage_dict(lineages):
+    out_dict = {}
+    for v in lineages:
+        for j in lineages[v]:
+            for l in lineages[v][j]:
+                for cluster_id in lineages[v][j][l]:
+                    out_dict[(v,j,l,cluster_id)] = lineages[v][j][l][cluster_id]
+    return out_dict
+
 def translate(seq):
 
     table = {
