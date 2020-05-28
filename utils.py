@@ -125,7 +125,7 @@ def fasta_read(fasta: str):
     seqs = []
     headers = []
     for seq in parse(fasta, 'fasta'):
-        headers.append(seq.id)
+        headers.append(seq.description)
         seqs.append(str(seq.seq))
     return seqs, headers
 
