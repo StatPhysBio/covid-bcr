@@ -28,6 +28,9 @@ def get_j_gaps(header):
 def get_j_anchor(gaps):
     return str(gaps - 34)
 
+def get_function(header):
+    return header[3]
+
 def trim_dict(gene_dict):
     gene_dict = sort_dict(gene_dict)
     out_dict = {}
@@ -57,14 +60,25 @@ def get_gene_dict(gapped_fasta, gene='V'):
                     gene_dict[gene] = {}
                 allele = line[1].split("*")[-1]
                 gaps = gap_func(line)
-                gene_dict[gene][allele] = anchor_func(gaps)
+                gene_dict[gene][allele] = {'gaps':anchor_func(gaps),
+                                           'func':get_function(line)}
     return trim_dict(gene_dict)
 
-def write_to_csv(save_name, gene_dict, delimiter):
-    with open(save_name, 'w') as outfile:
-        outfile.write('gene' + delimiter + 'anchor_index\n')
-        for key in gene_dict:
-            outfile.write(key + delimiter + gene_dict[key] + "\n")
+def write_to_csv(save_name, gene_dict, delimiter, program='igor'):
+    if program=='igor':
+        with open(save_name, 'w') as outfile:
+            outfile.write('gene' + delimiter + 'anchor_index\n')
+            for key in gene_dict:
+                outfile.write(key + delimiter + gene_dict[key]['gaps'] + "\n")
+    elif program=='sonia':
+        with open(save_name, 'w') as outfile:
+            outfile.write('gene' + delimiter
+                          + 'anchor_index' + delimiter
+                          + 'function\n')
+            for key in gene_dict:
+                outfile.write(key + delimiter
+                              + gene_dict[key]['gaps'] + delimiter
+                              + gene_dict[key]['func'] + "\n")
 
 def get_genomic_ref(fasta, save_name, gene_dict):
     seqs = []
@@ -87,7 +101,8 @@ def main():
         gene_dict = get_gene_dict(gapped_fasta_file, gene=gene)
         for key in out_dict:
             output_fasta_file_anchor = key + '_' + gene + '_gene_CDR3_anchors.csv'
-            write_to_csv(output_fasta_file_anchor, gene_dict, out_dict[key])
+            write_to_csv(output_fasta_file_anchor, gene_dict,
+                         out_dict[key], program=key)
         genomic_file = '/gscratch/stf/zachmon/covid/covid-bcr/abstar_genomic_' + gene + 's.fasta'
         get_genomic_ref(genomic_file,
                         genomic_file.replace(".fasta", "_for_igor.fasta"),
