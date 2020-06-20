@@ -84,8 +84,8 @@ def error_correct_marginal(uids: List[str], seqs: List[str],
     updated_uids = []
 
     for index, abund in enumerate(sorted_abundances):
-        if abund == 0:
-            continue
+        #if abund == 0:
+        #    continue
         remaining_seqs.append(sorted_seqs[index])
         updated_uids.append(update_uid(sorted_uids[index], sorted_abundances[index]))
     return updated_uids, remaining_seqs, parent_child
@@ -128,8 +128,8 @@ def error_correct_total(uids: List[str], seqs: List[str],
     updated_uids = []
 
     for index, abund in enumerate(sorted_abundances):
-        if abund == 0:
-            continue
+        #if abund == 0:
+        #    continue
         remaining_seqs.append(sorted_seqs[index])
         updated_uids.append(update_uid(sorted_uids[index], sorted_abundances[index]))
     return updated_uids, remaining_seqs, parent_child
@@ -153,12 +153,8 @@ def group_data(uids: List[str], seqs: List[str]):
               "Cannot group sequences correctly." )
         return
     grouped_data = {}
-    counter = 0
     for u,s in zip(uids, seqs):
         key = key_func(u,s)
-        if counter == 0:
-            print(key)
-            counter += 1
         if key not in grouped_data:
             grouped_data[key] = {'uids': [], 'sequences': []}
         grouped_data[key]['uids'].append(u)
