@@ -584,15 +584,15 @@ def main():
                     'get progenitor CDR3s; create csv to be used as input'
                     'for SONIA and expansion analysis.')
     parser.add_argument('--annotations', dest='annotations_input', nargs=2,
-                        metavar='PATH/TO/FOLDER/FILE PATH/TO/OUTFILE',
+                        metavar=('PATH/TO/FOLDER/FILE', 'PATH/TO/OUTFILE'),
                         help='path to abstar output (.json), '
                         'path for annotations output (.json)')
     parser.add_argument('--lineages', dest='lineages_input', nargs=2,
-                        metavar='PATH/TO/FOLDER/FILE PATH/TO/OUTFILE',
+                        metavar=('PATH/TO/FOLDER/FILE', 'PATH/TO/OUTFILE'),
                         help='path to annotations output (.json), '
                         'path for lineages output (.json)')
     parser.add_argument('--sonia', dest='sonia_input', nargs=2,
-                        metavar='PATH/TO/FOLDER/FILE PATH/TO/OUTFILE',
+                        metavar=('PATH/TO/FOLDER/FILE', 'PATH/TO/OUTFILE'),
                         help='path to lineages file (.json), '
                         'path for SONIA input (.csv)')
     args = parser.parse_args()
