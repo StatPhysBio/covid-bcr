@@ -3,142 +3,361 @@ import numpy as np
 from typing import List, Tuple, TextIO
 from jellyfish import hamming_distance
 
-def get_cprimer(uid: str) -> str:
-    return uid.split("|")[1].split("=")[-1]
+def get_cprimer(header: str) -> str:
+    """Obtains the cprimer from the header.
 
-def get_vprimer(uid: str) -> str:
-    return uid.split("|")[2].split("=")[-1]
+    Parameters
+    ----------
+    header : str
 
-def get_abundance(uid: str) -> int:
-    return int(uid.split("|")[3].split("=")[-1])
+    Returns
+    -------
+    str
+        cprimer
+    """
 
-def get_time(uid: str) -> int:
-    return int(uid.split("|")[4].split("=")[-1])
+    return header.split("|")[1].split("=")[-1]
 
-def get_replicate(uid: str) -> int:
-    return int(uid.split("|")[6].split("=")[-1])
+def get_vprimer(header: str) -> str:
+    """Obtains the vprimer from the header.
+
+    Parameters
+    ----------
+    header : str
+
+    Returns
+    -------
+    str
+        vprimer
+    """
+
+    return header.split("|")[2].split("=")[-1]
+
+def get_abundance(header: str) -> int:
+    """Obtains the abundance counts from the header.
+
+    Parameters
+    ----------
+    header : str
+
+    Returns
+    -------
+    int
+        abundance counts
+    """
+
+    return int(header.split("|")[3].split("=")[-1])
+
+def get_time(header: str) -> int:
+    """Obtains the time from the header.
+
+    Parameters
+    ----------
+    header : str
+
+    Returns
+    -------
+    int
+        time
+    """
+
+    return int(header.split("|")[4].split("=")[-1])
+
+def get_replicate(header: str) -> int:
+    """Obtains the replicate from the header.
+
+    Parameters
+    ----------
+    header : str
+
+    Returns
+    -------
+    int
+        replicate
+    """
+
+    return int(header.split("|")[6].split("=")[-1])
 
 def fasta_parse(fasta: str) -> Tuple[List[str], List[str]]:
-    uids = []
-    seqs = []
-    for seq in parse(fasta, 'fasta'):
-        seqs.append(str(seq.seq))
-        uids.append(seq.id)
-    return uids, seqs
+    """Reads a fasta file and prases the headers and the sequences.
 
-def write_to_fasta(save_name: str, headers: List[str], sequences: List[str]) -> None:
-    with open(save_name, "w") as new_fasta:
+    Parameters
+    ----------
+    fasta : str
+        Fasta file containing sequence information.
+
+    Returns
+    -------
+    headers :  list
+        List of header information from the fasta file.
+    sequences : list
+        List of sequences from the fasta file.
+    """
+
+    headers = []
+    sequences = []
+    for sequence in parse(fasta, 'fasta'):
+        sequences.append(str(sequence.seq))
+        headers.append(sequence.id)
+    return headers, sequences
+
+def write_to_fasta(outfile: str, headers: List[str], sequences: List[str]) -> None:
+    """Writes headers and sequences to a fasta file quickly.
+
+    Parameters
+    ----------
+    outfile : str
+        Path and name of file which will be written.
+    headers : list
+        List of headers to write to file.
+    sequences : list
+        List of sequences to write to file.
+
+    Returns
+    -------
+    None
+    """
+
+    with open(outfile, "w") as outf:
         for i, header in enumerate(headers):
-            new_fasta.write(">"+header + "\n" + sequences[i] + "\n")
+            outf.write(">"+header + "\n" + sequences[i] + "\n")
 
-def update_uid(uid: str, abundance: int) -> str:
-    uid_split = uid.split("|")
-    uid_split[3] = "DUPCOUNT=" + str(abundance)
-    updated_uid = "|".join(uid_split)
-    return updated_uid
+def update_header(header: str, abundance: int) -> str:
+    """Changes abundance count in header.
 
-def sort_data_by_abundance(uids: List[str], seqs: List[str]) -> Tuple[List[str], List[str]]:
-    sorted_uids = sorted(uids, key=lambda u: get_abundance(u), reverse=True)
-    sorted_seqs = [seq
-                   for _,seq in sorted(zip(uids,seqs),
-                                       key=lambda pair: get_abundance(pair[0]),
-                                       reverse=True)]
-    return sorted_uids, sorted_seqs
+    Parameters
+    ----------
+    header : str
+        String containing information about a sequence/annotation,
+    abundance : int
+        Abundance count to replace that currently in header.
 
-def error_correct_marginal(uids: List[str], seqs: List[str],
+    Returns
+    -------
+    updated_header : str
+        String containing updated abundance.
+    """
+
+    header_split = header.split("|")
+    header_split[3] = "DUPCOUNT=" + str(abundance)
+    updated_header = "|".join(header_split)
+    return updated_header
+
+def sort_data_by_abundance(headers: List[str], sequences: List[str]) -> Tuple[List[str], List[str]]:
+    """Sorts headers and sequences by descending abundance.
+
+    Parameters
+    ----------
+    headers : list
+        List of headers to be updated.
+    sequences : list
+        List of sequences to be processed.
+
+    Returns
+    -------
+    sorted_headers : list
+        Headers sorted by abundance.
+    sorted_sequences : list
+        Sequences sorted by header abundance.
+    """
+
+    sorted_headers = sorted(headers, key=lambda h: get_abundance(h), reverse=True)
+    sorted_sequences = [seq
+                        for _,seq in sorted(zip(headers,sequences),
+                                            key=lambda pair: get_abundance(pair[0]),
+                                                reverse=True)]
+    return sorted_headers, sorted_sequences
+
+def error_correct_marginal(headers: List[str], sequences: List[str],
                            delta_r: np.float32 = 1.0,
-                           delta_a: np.float32 = 1.0) -> Tuple[List[str], List[str]]:
-    sorted_uids, sorted_seqs = sort_data_by_abundance(uids, seqs)
-    sorted_abundances = [get_abundance(u) for u in sorted_uids]
+                           delta_a: np.float32 = 1.0,
+                           debug: bool = False) -> Tuple[List[str], List[str]]:
+    """Corrects sequencing errors that separated large abundance clones.
+
+    Parameters
+    ----------
+    headers : list
+        List of headers.
+    sequences : list
+        List of sequences which all have the same length.
+    delta_r : numpy.float32, optional
+        The marginal Hamming distance tolerance per decade in log ratio
+        abundance (each log_10 unit allowing delta_r additional
+        sequence differences).
+    delta_a : numpy.float32, optional
+        The marginal abundance tolerance of clusterable sequences per decade
+        in log ratio abundance (each log_10 unit allowing abundance Delta_a
+        higher as clusterable)
+    debug : bool, optional
+        Bool used to control whether or not to return parent_children dictionary.
+
+    Returns
+    -------
+    updated_headers : list
+        List of headers updated with merged abundances.
+    updated_sequences : list
+        List of sequences corresponding to the aforementioned headers.
+    parent_child : dict
+        Dictionary containing which headers got absorbed into what other headers.
+    """
+
+    sorted_headers, sorted_sequences = sort_data_by_abundance(headers, sequences)
+    sorted_abundances = [get_abundance(h) for h in sorted_headers]
+
+    #  Before any error correction, delta_r already places a limit on which sequences
+    #  can be merged into.
     parent_indices = np.where(np.array(sorted_abundances) >= 10 ** (1 / delta_r))[0]
 
+    #  Dictionary used to debug. In conjunction with abstar or annotation output,
+    #  it can be used to track how sequences of different types of productivity
+    #  or with/without SHM indels get merged.
     parent_child = {}
 
     for i in parent_indices:
+        #  The sequence has already been absorbed.
         if sorted_abundances[i] == 0:
             continue
-        parent_name = sorted_uids[i].split("|")[0]
-        for j,seq2 in reversed(list(enumerate(sorted_seqs))):
+        parent_name = sorted_headers[i].split("|")[0]
+        for j,seq2 in reversed(list(enumerate(sorted_sequences))):
             if i == j:
                 break
+            #  This algorithm is meant to absorb sequences into larger clones.
             if (sorted_abundances[i] == sorted_abundances[j]
                 or sorted_abundances[j] == 0):
                 continue
             abundance_log_ratio = (np.log10(sorted_abundances[i])
                                    - np.log10(sorted_abundances[j]))
+            #  Since a sequence gets absorbed if d <= delta_r * abundance_log_ratio,
+            #  if 1 > delta_r * abundance_log_ratio, then d <= delta_r * abundance_log_ratio
+            #  will never be satisfied. We are assuming d = 0 sequences are deduplicated.
             if 1 / abundance_log_ratio > delta_r:
                 break
+            #  sorted_abundance[j] < delta_a * abundance_log_ratio for a sequence
+            #  to be merged.
             if sorted_abundances[j] / abundance_log_ratio > delta_a:
                 break
-            seq1 = sorted_seqs[i]
+            seq1 = sorted_sequences[i]
             d = hamming_distance(seq1, seq2)
+            #  d <= delta_r * abundance_log_ratio for a sequence to be merged.
             if d / abundance_log_ratio <= delta_r:
                 if parent_name not in parent_child:
                     parent_child[parent_name] = []
-                parent_child[parent_name].append(sorted_uids[j].split("|")[0])
+                #  Add merged sequences as children to parent sorted_headers[i].
+                parent_child[parent_name].append(sorted_headers[j].split("|")[0])
+                #  Update the abundances.
                 sorted_abundances[i] += sorted_abundances[j]
                 sorted_abundances[j] = 0
 
-    #  Get remaining sequences and updated uids
-    remaining_seqs = []
-    updated_uids = []
+    #  Get resulting sequences and headers
+    updated_sequences = []
+    updated_headers = []
 
-    for index, abund in enumerate(sorted_abundances):
-        #if abund == 0:
-        #    continue
-        remaining_seqs.append(sorted_seqs[index])
-        updated_uids.append(update_uid(sorted_uids[index], sorted_abundances[index]))
-    return updated_uids, remaining_seqs, parent_child
+    for index, abun in enumerate(sorted_abundances):
+        updated_sequences.append(sorted_sequences[index])
+        updated_headers.append(update_header(sorted_headers[index], sorted_abundances[index]))
+    if debug:
+        return updated_headers, updated_sequences, parent_child
+    else:
+        return updated_headers, updated_sequences
 
-def error_correct_total(uids: List[str], seqs: List[str],
-                  d_tol: int = 1, a_tol: np.float32 = None) -> Tuple[List[str], List[str]]:
-    if a_tol is None:
-        a_tol = 1.0
+def error_correct_total(headers: List[str], sequences: List[str],
+                        d_thresh: int = 1,
+                        a_thresh: np.float32 = None,
+                        debug: bool = False) -> Tuple[List[str], List[str]]:
+    """Targets correction of reverse transcriptase errors.
 
-    #  Sort by descending abundance
-    sorted_uids, sorted_seqs = sort_data_by_abundance(uids, seqs)
-    sorted_uids = sorted(uids, key=lambda u: get_abundance(u), reverse=True)
-    sorted_seqs = [seq
-                   for _,seq in sorted(zip(uids,seqs),
-                                       key=lambda pair: get_abundance(pair[0]),
-                                       reverse=True)]
-    sorted_abundances = [get_abundance(u) for u in sorted_uids]
+    Parameters
+    ----------
+    headers : list
+        List of headers.
+    sequences : list
+        List of sequences which all have the same length.
+    d_thresh : int, optional
+        Maximum inclusive Hamming distance for which absorbtion can occur.
+    a_thresh : numpy.float32, optional
+        Minimum inclusive ratio of abundances for which absorbtion can occur.
+    debug : bool, optional
+        Bool used to control whether or not to return parent_children dictionary.
+
+    Returns
+    -------
+    updated_headers : list
+        List of headers updated with merged abundances.
+    updated_sequences : list
+        List of sequences corresponding to the aforementioned headers.
+    parent_child : dict
+        Dictionary containing which headers got absorbed into what other headers.
+    """
+
+    if a_thresh is None:
+        a_thresh = 1.0
+
+    sorted_headers, sorted_sequences = sort_data_by_abundance(headers, sequences)
+    sorted_abundances = [get_abundance(u) for u in sorted_headers]
+
     parent_child = {}
-    for i,seq1 in enumerate(sorted_seqs):
+    for i,seq1 in enumerate(sorted_sequences):
+        #  The sequence has already been absorbed.
         if sorted_abundances[i] == 0:
             continue
-        parent_name = sorted_uids[i].split("|")[0]
-        for j,seq2 in reversed(list(enumerate(sorted_seqs))):
+        parent_name = sorted_headers[i].split("|")[0]
+        for j,seq2 in reversed(list(enumerate(sorted_sequences))):
             if i == j:
                 break
             if sorted_abundances[j] == 0:
                 continue
             abundance_ratio = sorted_abundances[i] / sorted_abundances[j]
-            if abundance_ratio < a_tol:
+            #  The abundance ratio must be greater than or equal to a_thresh.
+            if abundance_ratio < a_thresh:
                 break
-            if hamming_distance(seq1, seq2) <= d_tol:
+            #  The Hamming distance must be less than or equal to d_thresh.
+            if hamming_distance(seq1, seq2) <= d_thresh:
                 if parent_name not in parent_child:
                     parent_child[parent_name] = []
-                parent_child[parent_name].append(sorted_uids[j].split("|")[0])
+                #  Add merged sequences as children to parent sorted_headers[i].
+                parent_child[parent_name].append(sorted_headers[j].split("|")[0])
+                #  Update the abundances.
                 sorted_abundances[i] += sorted_abundances[j]
                 sorted_abundances[j] = 0
 
-    #  Get remaining sequences and updated uids
-    remaining_seqs = []
-    updated_uids = []
+    #  Get resulting sequences and headers 
+    updated_sequences = []
+    updated_headers = []
 
-    for index, abund in enumerate(sorted_abundances):
-        #if abund == 0:
+    for index, abun in enumerate(sorted_abundances):
         #    continue
-        remaining_seqs.append(sorted_seqs[index])
-        updated_uids.append(update_uid(sorted_uids[index], sorted_abundances[index]))
-    return updated_uids, remaining_seqs, parent_child
+        updated_sequences.append(sorted_sequences[index])
+        updated_headers.append(update_header(sorted_headers[index], sorted_abundances[index]))
+    if debug:
+        return updated_headers, updated_sequences, parent_child
+    else:
+        return updated_headers, updated_sequences
 
-def group_data(uids: List[str], seqs: List[str]):
+def group_data(headers: List[str], sequences: List[str]) -> dict:
+    """Splits lists of headers and sequences in groupings of similar header information.
+
+    At the very least, this function splits headers/sequenes into groupings based
+    on C primer, V primer, and sequence length. At most, this function splits
+    headers/sequences into groupings based on C primer, V primer, sequence length,
+    time, and replicate. Error correction should be performed exclusively on sequences
+    with from the same primers, times, and replicates. The length requirement comes from
+    that fact that the Hamming distance is used to perform error correction.
+
+    Parameters
+    ----------
+    lineage : (dict)
+              nested dictionaries of lineages [V][J][L][cluster_id]
+
+    Returns
+    -------
+    condensed_lineages : (dict)
+                         dictionary of lineages by [(V, J, L, cluster_id)]
+    """
     #  Group by sequence length, c primer, v primer,
-    #  time, and replicate
-    num_header_info = len(uids[0].split("|"))
-    if num_header_info == 7:
+    #  time, and replicate. What grouping is determined
+    #  by how much information is in the header.
+    num_header_info = len(headers[0].split("|"))
+    if num_header_info >= 7:
         key_func=lambda h_in,s_in: (len(s_in), get_cprimer(h_in),
                                     get_vprimer(h_in), get_time(h_in),
                                     get_replicate(h_in))
@@ -152,12 +371,14 @@ def group_data(uids: List[str], seqs: List[str]):
         print("Missing information in header.\n",
               "Cannot group sequences correctly." )
         return
+
     grouped_data = {}
-    for u,s in zip(uids, seqs):
-        key = key_func(u,s)
+    for h,s in zip(headers, sequences):
+        #  Get appropriate header information for grouping.
+        key = key_func(h,s)
         if key not in grouped_data:
-            grouped_data[key] = {'uids': [], 'sequences': []}
-        grouped_data[key]['uids'].append(u)
+            grouped_data[key] = {'headers': [], 'sequences': []}
+        grouped_data[key]['headers'].append(h)
         grouped_data[key]['sequences'].append(s)
 
     return grouped_data
@@ -166,44 +387,89 @@ def main():
     """
     usage: python error_correct.py -h"""
     import argparse
-    import pickle
 
     parser = argparse.ArgumentParser(
         description='FASTA error correction')
-    parser.add_argument('fasta', type=str, help='path to FASTA')
-    parser.add_argument('outbase', type=str, help='basename for output files')
-    parser.add_argument('--d_tol', type=float, default=1,
+    parser.add_argument('--fasta', type=str, help='path to FASTA')
+    parser.add_argument('--outfile', type=str, help='path and name of output file')
+    parser.add_argument('--delta_r', type=float, default=1,
+                        help='marginal Hamming distance tolerance per decade in log'
+                        'ratio abundances (default 1)')
+    parser.add_argument('--delta_a', type=float, default=None,
+                        help='marginal abundance tolerance of clusterable sequences per'
+                        'decade in log ratio abundances (default 1)')
+    parser.add_argument('--d_thresh', type=float, default=1,
                         help='Hamming distance tolerance (default 1)')
-    parser.add_argument('--a_tol', type=float, default=None,
+    parser.add_argument('--a_thresh', type=float, default=None,
                         help='abundance ratio tolerance (if None, not '
                              'applied)')
     parser.add_argument('--passes', type=int, default=1,
                         help='number of times to repeat greedy clustering '
                              '(default 1)')
-    parser.add_argument('--keep_singletons', action='store_true',
-                        help="don't discard uncorrected singletons")
     args = parser.parse_args()
 
-    uids, seqs = fasta_parse(args.fasta)
-    grouped_data = group_data(uids, seqs)
+    headers, sequences = fasta_parse(args.fasta)
+    grouped_data = group_data(headers, sequences)
 
+    if args.delta_r is not None:
+        delta_r = args.delta_r
+    else:
+        delta_r = 1.0
+    if args.delta_a is not None:
+        delta_a = args.delta_a
+    else:
+        delta_a = 1.0
+    if args.d_thresh is not None:
+        d_thresh = args.d_thresh
+    else:
+        d_thresh = 2
+    if args.a_thresh is not None:
+        a_thresh = args.a_tresh
+    else:
+        a_thresh = None
+
+    print('initial_unique_counts', len(headers))
+    print('initial_abundance_counts', sum([get_abundance(h)
+                                           for h in headers]))
+    marginal_headers = []
     for this_pass in range(args.passes):
         for key in grouped_data:
-            out_uids, out_seqs = error_correct(grouped_data[key]['uids'],
-                                               grouped_data[key]['sequences'],
-                                               args.d_tol, args.a_tol)
+            marginal_output = error_correct_marginal(grouped_data[key]['headers'],
+                                                     grouped_data[key]['sequences'],
+                                                     delta_r=delta_r,
+                                                     delta_a=delta_a)
+            if this_pass == args.passes - 1:
+                marginal_headers += marginal_output[0]
+            total_output = error_correct_total(marginal_output[0],
+                                               marginal_output[1],
+                                               d_thresh=d_thresh,
+                                               a_thresh=a_thresh)
+
             #  Update dictionary so things don't have to be resorted
-            grouped_data[key]['uids'] = out_uids
-            grouped_data[key]['sequences'] = out_seqs
+            grouped_data[key]['headers'] = total_output[0]
+            grouped_data[key]['sequences'] = total_output[1]
 
-    #  Combine all uids and sequences
-    out_uids = []
-    out_seqs = []
+    print('marginal_unique_counts', sum([1
+                                         for h in marginal_headers
+                                         if get_abundance(h) > 0]))
+    print('marginal_abundance_counts', sum([get_abundance(h)
+                                            for h in marginal_headers]))
+
+    #  Combine all output and remove headers/sequences with 0 abundance.
+    out_headers = []
+    out_sequences = []
     for key in grouped_data:
-        out_uids += grouped_data[key]['uids']
-        out_seqs += grouped_data[key]['sequences']
+        for i,h in enumerate(grouped_data[key]['headers']):
+            if get_abundance(h) > 0:
+                out_headers.append(h)
+                out_sequences.append(grouped_data[key]['sequences'][i])
+    print('final_unique_counts', sum([1
+                                      for h in out_headers
+                                      if get_abundance(h) > 0]))
+    print('final_abundance_counts', sum([get_abundance(h)
+                                            for h in out_headers]))
 
-    write_to_fasta(args.fasta.replace("_collapsed-unique.fasta","_corrected.fasta"), out_uids, out_seqs)
+    write_to_fasta(args.outfile, out_headers, out_sequences)
 
 if __name__ == '__main__':
     main()
