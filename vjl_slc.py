@@ -24,7 +24,6 @@ def bin_vjl(anns, partis=None, abstar=None):
             v = ann["v_gene"]["gene"]
             j = ann["j_gene"]["gene"]
             l = len(ann["junc_nt"])
-            key = (v,j,l)
             if v not in vjl_dict:
                 vjl_dict[v] = {}
             if j not in vjl_dict[v]:

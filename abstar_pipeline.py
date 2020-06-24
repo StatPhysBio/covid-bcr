@@ -3,7 +3,35 @@ from error_correct import *
 from vjl_slc import vjl_slc
 from lineage_fisher_exact_test import *
 
-def load_abstar(abstar_file):
+def load_abstar(abstar_file: str) -> dict:
+    """Loads and performs preliminary filtering on abstar output.
+
+    Some json dictionaries from abstar output may be corrupted and therefore
+    difficult to load. The abstar file is read dictionary-by-dictionary
+    instead of all at once. Annotations which are not heavy chain,
+    missing CDR3 when aligned, or contain an N in the input sequence
+    are skipped. All passed sequences are saved to a dictionary
+    which splits them into productive, unproductive (out-of-frame exclusive),
+    stop codon in CDR3, and all other cases. If one were to perform error
+    correction more liberally, including the annotations in "other" is
+    more permissble than using annotations which show that there's a
+    stop codon in the CDR3.
+
+    Parameters
+    ----------
+    abstar_file : (string)
+                  path to abstar .json output
+
+    Returns
+    -------
+    annotations : (dict)
+                  dictionary of directiony of annotations split by types of productivity.
+                  keys of the first dictionary are ['productive', 'unproductive',
+                  'stop_in_cdr3', 'other']. Keys in the second dictionary come
+                  from the sequence header/id for each annotation. This makes
+                  for easy lookup when altering abundances.
+    """
+
     num_N = 0
     len_fail = 0
     d_fail = 0
@@ -13,148 +41,255 @@ def load_abstar(abstar_file):
                    'unproductive':{},
                    'stop_in_cdr3':{},
                    'other':{}}
+
     for line in open(abstar_file, 'r'):
+        #  Some abstar annotations are blank. Skip these.
         if len(line) < 10:
             len_fail += 1
             continue
+        #  Abstar may annotate some sequences as being
+        #  kappa or lambda chains. We want heavy chain.
         if 'd_gene' not in line:
             d_fail += 1
             continue
         data_dict = json.loads(line)
+        #  If the annotation has no CDR3 sequence,
+        #  it's not of much use to us.
         if 'cdr3_nt' not in data_dict:
             cdr3_fail += 1
             continue
+        #  Remove any annotations in which the input
+        #  sequence has an N in it.
         if data_dict['raw_input'].strip("N").count("N") != 0:
             num_N += 1
             continue
         passed += 1
-        seq_id = data_dict['seq_id'].split("|")[0]
+
+        #  Save the annotation to the dictionary
+        #  using a unique key.
+        seq_key = data_dict['seq_id'].split("|")[0]
         if data_dict['prod'] == 'yes':
-            annotations['productive'][seq_id] = data_dict
+            annotations['productive'][seq_key] = data_dict
+        #  We use out-of-frame sequences exclusively
+        #  as our unproductive sequences since these
+        #  are least likely to occur from sequencing error
+        #  compared to observing a stop codon.
         elif data_dict['junction_in_frame'] == 'no':
-            annotations['unproductive'][seq_id] = data_dict
+            annotations['unproductive'][seq_key] = data_dict
+        #  Stop codons in the CDR3 are more likely
+        #  occur from vdj recombination and 
+        #  junctional diversity than sequencing error alone.
         elif "*" in data_dict['junc_aa']:
-            annotations['stop_in_cdr3'][seq_id] = data_dict
+            annotations['stop_in_cdr3'][seq_key] = data_dict
+        #  Stop codons not in the CDR3 are more likely
+        #  to have been from sequencing error. If one
+        #  wanted to include them in the error correction
+        #  step, it wouldn't be the worst idea.
         else:
-            annotations['other'][seq_id] = data_dict
-    print("Length_fail",len_fail,
+            annotations['other'][seq_key] = data_dict
+
+    print("Loading abstar log:"
+          "\nLength_fail",len_fail,
           "\nD_gene_fail",d_fail,
           "\nN_filtered", num_N,
           "\nCDR3_fail",cdr3_fail,
           '\nabstar_pass', passed)
     return annotations
 
-def shm_indels(in_ann):
-    return (len(in_ann['vdj_nt']) != len(in_ann['gapped_vdj_nt'])
-       or len(in_ann['vdj_germ_nt']) != len(in_ann['gapped_vdj_germ_nt']))
+def has_shm_indels(annotation: dict) -> bool:
+    """Determines if an annotation has shm indels.
 
-def abstar_cdr3(in_a):
+    Method to determine whether or not an annotation has SHM indels.
+    Any difference between the ungapped and gapped alignments
+    is indicative of the presence of SHM indels.
+
+    Parameters
+    ----------
+    annotation : (dict)
+                 dictionary containing annotation output for a sequence
+
+    Returns
+    -------
+    bool if there is any difference between gapped and ungapped alignments
+    """
+
+    return ((annotation['vdj_nt'] != annotation['gapped_vdj_nt'])
+       or (annotation['vdj_germ_nt'] != annotation['gapped_vdj_germ_nt']))
+
+def cdr3_position(annotation: dict, nt: bool = True, junc: bool = False) -> tuple:
+    """Determines if reported CDR3 is present in the alignment.
+
+    Abstar is not the most robust of softwares. There are sometimes
+    differences between what is in the raw input sequence and what
+    abstar reports as the CDR3. Alignment lengths are also not
+    completely trustworthy. This method checks whether abstar's
+    identified CDR3 was in the alignment of the input and returns the
+    start and end positions of the cdr3 in the alignment if so.
+
+    Parameters
+    ----------
+    annotation : (dict)
+                 dictionary containing annotation output for a sequence
+    nt : (bool), optional
+         use nucleotide output, otherwise amino acid
+    junc : (bool), optional
+           use junction, otherwise use CDR3 without invariant residues
+
+    Returns
+    -------
+    (cdr3_start, cdr3_end) : (tuple[str])
+                             tuple of start and end positions of CDR3 sequence
+    """
+
+    if nt:
+        residue = 'nt'
+    else:
+        residue = 'aa'
+    if junc:
+        loc = 'junc_'
+    else:
+        loc = 'cdr3_'
+
     try:
-        cdr3_start = in_a['vdj_nt'].index(in_a['cdr3_nt'])
-        cdr3_end = cdr3_start + in_a['region_len_nt']['cdr3']
+        cdr3_start = annotation['vdj_' + residue].index(annotation[loc + residue])
+        cdr3_end = cdr3_start + len(annotation[loc + residue])
         return cdr3_start,cdr3_end
     except:
         return None
 
-def run_error_correction(annotations, keys):
-    if ('productive' not in keys and 'unproductive' not in keys) or ('productive' in keys and 'unproductive' in keys):
-        return
+def run_error_correction(annotations: dict, keys: list) -> None:
+    """Performs error correction on annotated sequences.
 
-    in_h = []
-    in_seqs = []
+    Error correction merges erroneous sequences by adding their
+    abundance to non-erroneous sequences and then removing the errorneous
+    sequence. The marginal error correction algorithm seeks to correct
+    for sequencing errors that caused large abundance clones to be split
+    into many similar sequences. The total error correction algorithm
+    targets correction of reverse transcriptase errors. To conserve memory,
+    the original dictionary of annotations is altered.
+
+    Parameters
+    ----------
+    annotation : (dict)
+                 dictionary containing annotation output for a sequence
+    keys : (list)
+           list of string keys in annotations on which error correction
+           should be performed. For conservative error correction, perform
+           error correction on productives only and then unproductives only.
+           For more liberal error correction, you could include sequences
+           with stops not in the CDR3, i.e. the key called "other"
+
+    Returns
+    -------
+    None
+    """
+
+    initial_headers = []
+    initial_sequences = []
     for key in keys:
         for seq_key in annotations[key]:
-            in_h.append(annotations[key][seq_key]['seq_id'])
-            in_seqs.append(annotations[key][seq_key]['raw_input'])
+            initial_headers.append(annotations[key][seq_key]['seq_id'])
+            initial_sequences.append(annotations[key][seq_key]['raw_input'])
 
-    before_ec_unique = len(in_h)
-    before_ec_abundance = sum([get_abundance(u) for u in in_h])
-    marg_uids = []
+    initial_unique_count = len(initial_headers)
+    initial_abundance_count = sum([get_abundance(header)
+                                   for header in initial_headers])
+    marginal_headers = []
 
-    groups = group_data(in_h,in_seqs)
-    for key in groups:
-        marg_out_uids, marg_out_seqs, marg_pc = error_correct_marginal(groups[key]['uids'],groups[key]['sequences'])
-        marg_uids += marg_out_uids
+    #  Error correction gets performed within a bin of same cprimer, vprimer,
+    #  sequence length, time, and replicate.
+    grouped_data = group_data(initial_headers, initial_sequences)
+    for key in grouped_data:
+        marginal_output = error_correct_marginal(grouped_data[key]['headers'],
+                                                 grouped_data[key]['sequences'],
+                                                 delta_r=1.0,
+                                                 delta_a=1.0)
+        #  Record headers for logging purposes.
+        marginal_headers += marginal_output[0]
 
-        tot_out_uids, tot_out_seqs, total_pc = error_correct_total(marg_out_uids,marg_out_seqs,d_tol=2)
-        groups[key]['uids'] = tot_out_uids
-        groups[key]['sequences'] = tot_out_seqs
+        total_output = error_correct_total(marginal_output[0],
+                                           marginal_output[1],
+                                           d_tol=2,
+                                           a_tol=None)
 
-    final_uids = []
-    final_seqs = []
-    for key in groups:
-        final_uids += groups[key]['uids']
-        final_seqs += groups[key]['sequences']
+        grouped_data[key]['headers'] = total_output[0]
+        grouped_data[key]['sequences'] = total_output[1]
 
-    #  Report counts
-    marg_unique = 0
-    marg_abundance = 0
-    for u in marg_uids:
-        abun = get_abundance(u)
+    #  Concatenate into single lists for headers and sequences, respectively.
+    final_headers = []
+    final_sequences = []
+    for key in grouped_data:
+        final_headers += grouped_data[key]['headers']
+        final_sequences += grouped_data[key]['sequences']
+
+    #  Calculate counts at all step of error correction.
+    marginal_unique = 0
+    marginal_abundance = 0
+    for h in marginal_headers:
+        abun = get_abundance(h)
         if abun > 0:
-            marg_unique += 1
-            marg_abundance += abun
+            marginal_unique += 1
+            marginal_abundance += abun
     final_unique = 0
     final_abundance = 0
-    for u in final_uids:
-        abun = get_abundance(u)
+    for h in final_headers:
+        abun = get_abundance(h)
         if abun > 0:
             final_unique += 1
             final_abundance += abun
+    print("-".join(keys) + '_before_correction', initial_unique_count, initial_abundance_count)
+    print("-".join(keys) + '_after_marginal_correction', marginal_unique, marginal_abundance)
+    print("-".join(keys) + '_after_total_correction', final_unique, final_abundance)
 
-    updated_dict_unique = 0
-    updated_dict_abundance = 0
-    if 'productive' in keys:
-        prefix = 'prod_'
-        for uid in final_uids:
-            seqkey = uid.split("|")[0]
+    #  Update abundances and delete 0 abundance sequences.
+    for key in keys:
+        updated_dict_unique = 0
+        updated_dict_abundance = 0
+        for h in final_headers:
+            seq_key = h.split("|")[0]
             try:
-                abun = get_abundance(uid)
+                abun = get_abundance(h)
                 if abun > 0:
                     updated_dict_unique += 1
                     updated_dict_abundance += abun
-                    annotations['productive'][seqkey]['seq_id'] = uid
+                    annotations[key][seq_key]['seq_id'] = h
                 else:
-                    del annotations['productive'][seqkey]
+                    del annotations[key][seq_key]
             except:
                 pass
+        print(key + '_after_type_check', updated_dict_unique, updated_dict_abundance)
 
-    else:
-        prefix = 'unprod_'
-        for uid in final_uids:
-            seqkey = uid.split("|")[0]
-            try:
-                abun = get_abundance(uid)
-                if abun > 0:
-                    updated_dict_unique += 1
-                    updated_dict_abundance += abun
-                    annotations['unproductive'][seqkey]['seq_id'] = uid
-                else:
-                    del annotations['unproductive'][seqkey]
-            except:
-                pass
+def filter_after_error_correction(annotations: dict, annkey: str) -> None:
+    """Removes annotations with mismtached primer, shm indels, or corrupt CDR3.
 
-    print(prefix + 'before_ec', before_ec_unique, before_ec_abundance)
-    print(prefix + 'after_marginal', marg_unique, marg_abundance)
-    print(prefix + 'after_total', final_unique, final_abundance)
-    print(prefix + 'after_type_check', updated_dict_unique, updated_dict_abundance)
+    Parameters
+    ----------
+    annotations : (dict)
+                 dictionary containing annotation output for a sequence
+    keys : (str)
+           a key in the annotations dictionary: ['productive', 'unproductive',
+           'stop_in_cdr3', 'other']
 
-def filter_after_error_correction(annotations, annkey):
+    Returns
+    -------
+    None
+    """
+
     bad_cdr3 = 0
     num_shm_indels = 0
     bad_primer = 0
 
     for seq_key in list(annotations[annkey].keys()):
-        ann = annotations[annkey][seq_key]
-        vprimer = get_vprimer(ann['seq_id']).split("-")[0]
-        v_gene =  ann["v_gene"]["fam"]
+        annotation = annotations[annkey][seq_key]
+        vprimer = get_vprimer(annotation['seq_id']).split("-")[0]
+        v_gene =  annotation["v_gene"]["fam"]
         if v_gene != vprimer:
             bad_primer += 1
             del annotations[annkey][seq_key]
-        elif abstar_cdr3(ann) is None:
+        elif cdr3_position(annotation) is None:
             bad_cdr3 += 1
             del annotations[annkey][seq_key]
-        elif shm_indels(ann):
+        elif has_shm_indels(annotation):
             num_shm_indels += 1
             del annotations[annkey][seq_key]
 
@@ -162,11 +297,24 @@ def filter_after_error_correction(annotations, annkey):
     print(annkey + '_num_shm_indels', num_shm_indels)
     print(annkey + '_bad_primer', bad_primer)
 
-def pipeline(f):
-    patient = f.split("/")[-1].split(".")[0]
-    annotations = load_abstar(f)
+def annotations_pipeline(infile: str) -> dict:
+    """Loads abstar file and saves annotations after error correction and filtering.
+
+    Parameters
+    ----------
+    infile : (str)
+             path to abstar file
+
+    Returns
+    -------
+    None
+    """
+
+    patient = infile.split("/")[-1].split(".")[0]
+    annotations = load_abstar(infile)
     for key in annotations:
-        abun = sum([get_abundance(annotations[key][seq_key]['seq_id']) for seq_key in annotations[key]])
+        abun = sum([get_abundance(annotations[key][seq_key]['seq_id'])
+                    for seq_key in annotations[key]])
         print("initial_" + key, len(annotations[key]), abun)
 
     run_error_correction(annotations, ['productive'])
@@ -178,57 +326,76 @@ def pipeline(f):
     filter_after_error_correction(annotations, 'productive')
     filter_after_error_correction(annotations, 'unproductive')
     for key in annotations:
-        abun = sum([get_abundance(annotations[key][seq_key]['seq_id']) for seq_key in annotations[key]])
-        print('final_', key, len(annotations[key]), abun)
+        abun = sum([get_abundance(annotations[key][seq_key]['seq_id'])
+                    for seq_key in annotations[key]])
+        print('final_' + key, len(annotations[key]), abun)
 
     for key in annotations:
         annotations[key] = list(annotations[key].values())
 
-    save_dir = '/gscratch/stf/zachmon/covid/annotations/abstar/error_corrected/'
-    suffix = '_annotations.json'
-    #json_save(save_dir + patient + suffix, annotations)
-    #print("Saved",save_dir+patient+suffix)
+    return annotations
 
-def merge_same_replicate_anns(lin):
-    merged_lin = []
-    seq_dict = {}
-    for ann in lin:
-        raw_seq = ann['raw_input'].strip("N")
-        time = get_time(ann['seq_id'])
-        if (raw_seq,time) not in seq_dict:
-            seq_dict[(raw_seq,time)] = []
-        seq_dict[(raw_seq,time)].append(ann)
-    s_abundance = 0
-    for key in seq_dict:
-        if len(seq_dict[key]) > 1:
-            abundance = sum([get_abundance(ann['seq_id'])
-                             for ann in seq_dict[key]])
-            s_abundance += abundance
-            ann_copy = seq_dict[key][0]
-            germ_cdr3 = abstar_naive_cdr3(ann_copy)
-            rep_use = get_replicate(ann_copy['seq_id'])
-            for a in seq_dict[key][1:]:
-                r = get_replicate(a['seq_id'])
-                cdr3_a = abstar_naive_cdr3(a)
-                if cdr3_a != germ_cdr3:
-                    r = get_replicate(a['seq_id'])
-                    print("oh no", rep_use, r)
-                    print(rep_use,ann_copy['raw_input'],germ_cdr3)
-                    print(r, a['raw_input'], cdr3_a)
-                    print("\n\n")
-            ann_copy['seq_id'] = update_uid(ann_copy['seq_id'], abundance)
-            merged_lin.append(ann_copy)
-        else:
-            merged_lin.append(seq_dict[key][0])
-    return merged_lin
+def make_lineages(infile: str) -> dict:
+    """Loads annotations file and creates lineages by performing SLC on VJL bins.
 
-def update_uid(uid: str, abundance: int) -> str:
-    uid_split = uid.split("|")
-    uid_split[3] = "DUPCOUNT=" + str(abundance)
-    updated_uid = "|".join(uid_split)
-    return updated_uid
+    Parameters
+    ----------
+    infile : (str)
+             path to annotations file
 
-def abstar_naive_cdr3(in_a, nt=True, junc=True):
+    Returns
+    -------
+    lineages : (dict)
+               nested dictionaries of clustered annotations [V][J][L][cluster_id]
+    """
+
+    patient = infile.split("/")[-1].split("_")[0]
+    annotations = json_open(infile)
+    productive_lineages = vjl_slc(annotations['productive'],abstar=True)
+    unproductive_lineages = vjl_slc(annotations['unproductive'],abstar=True)
+    lineages = {'productive': productive_lineages,
+                'unproductive': unproductive_lineages}
+    return lineages
+
+def update_header(header: str, abundance: int) -> str:
+    """Changes abundance count in header.
+
+    Parameters
+    ----------
+    header : (str)
+             string containing information about a sequence/annotation
+    abundance : (int)
+                abundance count to replace that currently in header
+
+    Returns
+    -------
+    updated_header : (str)
+                     string containing updated abundance
+    """
+
+    header_split = header.split("|")
+    header_split[3] = "DUPCOUNT=" + str(abundance)
+    updated_header = "|".join(header_split)
+    return updated_header
+
+def get_naive_cdr3(annotation: dict,  nt: bool = True, junc: bool = True) -> str:
+    """Obtains naive CDR3 from abstar annotation.
+
+    Parameters
+    ----------
+    annotation : (dict)
+                 dictionary containing annotation output for a sequence
+    nt : (bool), optional
+         use nucleotide output, otherwise amino acid
+    junc : (bool), optional
+           use junction, otherwise use CDR3 without invariant residues
+
+    Returns
+    -------
+    naive_cdr3 : (str)
+                 CDR3 of naive sequence
+    """
+
     if nt:
         residue = 'nt'
     else:
@@ -237,68 +404,108 @@ def abstar_naive_cdr3(in_a, nt=True, junc=True):
         loc = 'junc_'
     else:
         loc = 'cdr3_'
-    try:
-        cdr3_start = in_a['vdj_'+residue].index(in_a[loc+residue])
-        cdr3_end = cdr3_start + len(in_a[loc+residue])
-        return in_a['vdj_germ_'+residue][cdr3_start:cdr3_end]
-    except:
-        print(in_a['raw_input'].index(in_a['junc_nt']))
-        return None
 
-def make_lineages(f):
-    patient = f.split("/")[-1].split("_")[0]
-    annotations = json_open(f)
-    pslc = vjl_slc(annotations['productive'],abstar=True)
-    #pslc = merge_replicates(pslc)
-    print(len(pslc))
-    uslc = vjl_slc(annotations['unproductive'],abstar=True)
-    #uslc = merge_replicates(uslc)
-    print(len(uslc))
-    head_dir = '/gscratch/stf/zachmon/covid/lineages/abstar/error_corrected/'
-    suffix = "_lineages_conservative.json"
-    save_name = head_dir + patient + suffix
-    json_save(save_name, {'productive':pslc, 'unproductive':uslc})
-    print("Saved",save_name)
+    cdr3_positions = cdr3_position(annotation, nt=nt, junc=junc)
+    if cdr3_positions is not None:
+        return annotation['vdj_germ_'+residue][cdr3_positions[0]:cdr3_positions[1]]
+    else:
+       return None
 
-def merge_replicates(lineages):
-    out_lins = {}
+def merge_replicates_within_lineage(lineage: list) -> list:
+    """Merges identical sequences from different replicates at the same timepoint for a single lineage.
+
+    Parameters
+    ----------
+    lineage : (list)
+              list of annotations
+
+    Returns
+    -------
+    condensed_lineage : (list)
+                        list of annotations after merging replicates
+    """
+
+    #  Create dictionary to identify identical sequences across replicates
+    #  at the same timepoint.
+    replicate_dict = {}
+    for annotation in lineage:
+        sequence = annotation['raw_input']
+        time = get_time(annotation['seq_id'])
+        replicate_key = (sequence, time)
+        if replicate_key not in replicate_dict:
+            replicate_dict[replicate_key] = []
+        replicate_dict[replicate_key].append(annotation)
+
+    condensed_lineage = []
+    for key in replicate_dict:
+        if len(replicate_dict[key]) > 1:
+            abundance = sum([get_abundance(annotation['seq_id'])
+                             for annotation in replicate_dict[key]])
+            annotation_0 = replicate_dict[key][0]
+            naive_cdr3_0 = get_naive_cdr3(annotation_0)
+            replicate_0 = get_replicate(annotation_0['seq_id'])
+
+            #  Check that the sequence produces the same annotation results
+            #  across replicates.
+            for annotation in replicate_dict[key][1:]:
+                naive_cdr3 = get_naive_cdr3(annotation)
+                if naive_cdr3 != naive_cdr3_0:
+                    replicate = get_replicate(annotation['seq_id'])
+                    print("Different annotation results for these replicates:", replicate_0, replicate)
+                    print(replicate_0, annotation_0['raw_input'], naive_cdr3_0)
+                    print(replicate, annotation['raw_input'], naive_cdr3)
+                    print("\n\n")
+            annotation_0['seq_id'] = update_uid(annotation_0['seq_id'], abundance)
+            condensed_lineage.append(annotation_0)
+        else:
+            condensed_lineage.append(replicate_dict[key][0])
+    return condensed_lineage
+
+def merge_replicates(lineages: dict) -> dict:
+    """Apply replicate merging to each lineage.
+
+    Parameters
+    ----------
+    lineage : (dict)
+              nested dictionaries of lineages [V][J][L][cluster_id]
+
+    Returns
+    -------
+    condensed_lineages : (dict)
+                         dictionary of lineages by [(V, J, L, cluster_id)]
+    """
+
+    condensed_lineages = {}
     for v in lineages:
         for j in lineages[v]:
             for l in lineages[v][j]:
                 for cluster_id in lineages[v][j][l]:
-                    out_lins[(v,j,l,cluster_id)] = merge_same_replicate_anns(lineages[v][j][l][cluster_id])
-    return out_lins
-CUTOFF_DICT = {'11': 10, '4': 35,'21': 20,
-               '6': 18,'15': 18,'22': 18,
-               '9':20,'49':33,'117':10,
-               '196':10,'212':10,'271':4,
-               '166':10,'187':11,'2':7,
-               '42':18,'12':45,'17':25,
-               '7':40,'81':0,'82':0,'83':0}
+                    condensed_lineages[(v,j,l,cluster_id)] = merge_replicates_within_lineage(lineages[v][j][l][cluster_id])
+    return condensed_lineages
 
-def get_expansion(lineages, patient):
-    CUTOFF_DICT = {'11': 10, '4': 35,'21': 20,
-                   '6': 18,'15': 18,'22': 18,
-                   '9':20,'49':33,'117':10,
-                   '196':10,'212':10,'271':4,
-                   '166':10,'187':11,'2':7,
-                   '42':18,'12':45,'17':25,
-                   '7':40,'81':0,'82':0,'83':0}
-    df_counts = get_primer_split_counts(lineages, patient, abstar=True,rep=False)['abundance']
-    df_fet = fisher_exact_test(df_counts, time_threshold=CUTOFF_DICT[patient], testtype='less')
-    exp_lineages = get_expanded_lineages(df_fet, pvalue_thresh=1e-200)
-    return exp_lineages
+def get_common_naive_abstar(lineage: list, nt: bool = True, junc: bool = True) -> str:
+    """Obtains the most common naive cdr3 not containg a stop codon from a lineage.
 
-def sort_dict_by_value(x):
-    return {k: v
-            for k, v in sorted(x.items(),
-                               key=lambda item: item[1], reverse=True)}
+    If the most common naive sequence of a lineage contains a stop
+    codon, the progenitor of the lineage is chosen iteratively
+    by examining the next most common naive CDR3 until it does not
+    contain any stop codons. Otherwise, an empty string is returned
+    indicating all naive CDR3s in this lineage contain a stop codon.
 
-def get_common_naive_abstar(lineage, nt=True, junc=True):
+    Parameters
+    ----------
+    lineage : (list)
+              list of annotations
+
+    Returns
+    -------
+    most_common_naive_cdr3 : (str)
+                             most common naive CDR3 in a lineage
+    """
+
     naive_cdr3s = []
-    for lin_ann in lineage:
-        germ_cdr3 = abstar_naive_cdr3(lin_ann, nt=nt, junc=junc)
-        naive_cdr3s.append(germ_cdr3)
+    for annotation in lineage:
+        naive_cdr3s.append(get_naive_cdr3(annotation, nt=nt, junc=junc))
     counter = sort_dict_by_value(Counter(naive_cdr3s))
     for key in counter:
         if key is None:
@@ -315,57 +522,89 @@ def get_common_naive_abstar(lineage, nt=True, junc=True):
                 return key
     return ""
 
-def create_sonia_input(lin_file):
-    in_lineages = json_open(lin_file)['productive']
-    patient = lin_file.split("/")[-1].split("_")[0]
-    sonia_in = []
+def create_sonia_input(infile: str) -> pd.DataFrame:
+    """Generates a csv of information about lineage progenitors to use as input for SONIA.
+
+    Lineages first undergo replicate merging. This is done so that only completely
+    unique sequences are used at each timepoint when determining the most common
+    naive CDR3. Once the most common CDR3 is obtained, it's inspected
+    to ensure it either doesn't contain any stop codons and that is begins
+    with a cysteine (C) and ends in a tryptophan (W) or phenylalanine (F).
+    SONIA works on naive productive sequences only and the invariant residues
+    are necessary due to SONIA's preinstalled CDR3 anchors. Finally, only
+    unique nucleotide rearrangements are kept. (I.e. multiple combinations
+    of (CDR3, V, and J) may be in the file, but know that they ensue from
+    different nucleotide rearrangement events.)
+
+    Parameters
+    ----------
+    infile : (str)
+             path to file containing lineages
+
+    Returns
+    -------
+    sonia_df : (pandas.DataFrame)
+               DataFrame object containing information for SONIA
+    """
+
+    in_lineages = json_open(infile)['productive']
     lineages = merge_replicates(in_lineages)
-    exp_lineages = get_expansion(lineages, patient)
-    for index,li in enumerate(lineages):
-        prog_cdr3 = get_common_naive_abstar(lineages[li])
-        if prog_cdr3 is None:
+    sonia_input = []
+    patient = infile.split("/")[-1].split("_")[0]
+
+    for index,key in enumerate(lineages):
+        progenitor_cdr3 = get_common_naive_abstar(lineages[key])
+        if progenitor_cdr3 is None:
             continue
-        if len(prog_cdr3) == 0:
+        if len(progenitor_cdr3) == 0:
             continue
-        prog_cdr3_aa = translate(prog_cdr3)
-        if prog_cdr3_aa[0] == 'C' and (prog_cdr3_aa[-1] == 'W' or prog_cdr3_aa[-1] == 'F'):
-            v = lineages[li][0]["v_gene"]["gene"]
-            j = lineages[li][0]["j_gene"]["gene"]
-            if li in exp_lineages:
-                expanded = True
-            else:
-                expanded = False
-            sonia_in.append((prog_cdr3_aa, v, j, len(lineages[li]), expanded, patient, prog_cdr3))
-    df_sonia = pd.DataFrame(sonia_in,columns=['consensus_cdr3',
-                                              'v_gene',
-                                              'j_gene',
-                                              'lineage_size',
-                                              'expanded',
-                                              'patient',
-                                              'nt_cdr3'])
-    df_sonia = df_sonia.sort_values(by=['expanded'],ascending=False)
-    #  Keep independent nt recombination events only
-    df_sonia.drop_duplicates(subset=['v_gene', 'j_gene','consensus_cdr3', 'nt_cdr3'],keep='first')
-    sonia_dir = '/gscratch/stf/zachmon/covid/sonia_input/abstar/'
-    suffix = '_sonia_input.csv'
-    df_sonia.to_csv(sonia_dir + patient + suffix, index=False)
-    print("Saved",sonia_dir+patient + suffix)
+        progenitor_cdr3_aa = translate(progenitor_cdr3)
+        if ((progenitor_cdr3_aa[0] == 'C')
+           and (progenitor_cdr3_aa[-1] == 'W' or progenitor_cdr3_aa[-1] == 'F')):
+            sonia_input.append((progenitor_cdr3_aa, key[0], key[1],
+                                len(lineages[key]), patient, progenitor_cdr3))
+    df_sonia = pd.DataFrame(sonia_input, columns=['progenitor_cdr3', 'v_gene',
+                                              'j_gene', 'lineage_size',
+                                              'patient', 'nt_cdr3'])
+    #  Sort by lineage size so smaller duplicate nucleotide recombination
+    #  events get removed.
+    df_sonia = df_sonia.sort_values(by=['lineage_size'],ascending=False)
+
+    #  Keep independent nucleotide recombination events only
+    df_sonia.drop_duplicates(subset=['v_gene', 'j_gene', 'progenitor_cdr3', 'nt_cdr3'],
+                             keep='first')
+    return df_sonia
 
 def main():
     import argparse
     parser = argparse.ArgumentParser(
-        description='abstar pipeline')
-    parser.add_argument('--in_file', type=str, help='path to abstar file')
-    parser.add_argument('--lineages', action='store_true', help='path to abstar file')
-    parser.add_argument('--annotations', action='store_true', help='path to abstar file')
-    parser.add_argument('--sonia', action='store_true', help='path to abstar file')
+        description='Pipeline to process abstar output:'
+                    'error correction on sequences and filter annotations;'
+                    'make lineages, merge replicates in lineages,'
+                    'get progenitor CDR3s; create csv to be used as input'
+                    'for SONIA and expansion analysis.')
+    parser.add_argument('--annotations', dest='annotations_input', nargs=2,
+                        metavar='PATH/TO/FOLDER/FILE PATH/TO/OUTFILE',
+                        help='path to abstar output (.json), '
+                        'path for annotations output (.json)')
+    parser.add_argument('--lineages', dest='lineages_input', nargs=2,
+                        metavar='PATH/TO/FOLDER/FILE PATH/TO/OUTFILE',
+                        help='path to annotations output (.json), '
+                        'path for lineages output (.json)')
+    parser.add_argument('--sonia', dest='sonia_input', nargs=2,
+                        metavar='PATH/TO/FOLDER/FILE PATH/TO/OUTFILE',
+                        help='path to lineages file (.json), '
+                        'path for SONIA input (.csv)')
     args = parser.parse_args()
-    if args.annotations:
-       pipeline(args.in_file)
-    if args.lineages:
-       make_lineages(args.in_file)
-    if args.sonia:
-        create_sonia_input(args.in_file)
+    if args.annotations_input is not None:
+        annotations = annotations_pipeline(args.annotations_input[0])
+        json_save(args.annotations_input[1], annotations)
+    if args.lineages_input is not None:
+        lineages = make_lineages(args.lineages_input[0])
+        json_save(args.lineages_input[1], lineages)
+    if args.sonia_input is not None:
+        df_sonia = create_sonia_input(args.sonia_input[0])
+        df_sonia.to_csv(args.sonia_input[1], index=False)
 
 if __name__=='__main__':
     main()

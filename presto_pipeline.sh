@@ -1,11 +1,11 @@
 #!/bin/bash
 #SBATCH --job-name=covid_preprocess
-#SBATCH -p stf
-#SBATCH -A stf
+#SBATCH -p spe 
+#SBATCH -A spe
 #SBATCH --nodes=1
-#SBATCH --mem=100G
-#SBATCH --ntasks-per-node=28
-#SBATCH --time=5-00:00:00
+#SBATCH --mem=20G
+#SBATCH --ntasks-per-node=20
+#SBATCH --time=1:00:00
 
 # TODO Take in a working directory
 #      Take in a conda directory for error correction
@@ -14,7 +14,7 @@ CONDADIR=${SCRATCHDIR}miniconda3/
 CONDAENVDIR=${CONDADIR}envs/covid-bcr
 RUNCONDA=${CONDADIR}etc/profile.d/conda.sh
 SOFTWAREDIR=${SCRATCHDIR}software/presto-0.5.13/bin/
-COVIDDIR=${SCRATCHDIR}covid/round2data/
+COVIDDIR=${SCRATCHDIR}covid/round3data/
 ALIGNDIR=${COVIDDIR}aligned/
 FILTERDIR=${COVIDDIR}filtered/
 TRIMDIR=${COVIDDIR}masked/
