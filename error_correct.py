@@ -1,3 +1,22 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""Script to run marginal and total error correction algorithms.
+    Copyright (C) 2020 DeWitt III, William S; Montague, Zachary
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+
 from Bio.SeqIO import parse
 import numpy as np
 from typing import List, Tuple, TextIO
@@ -16,7 +35,7 @@ def get_cprimer(header: str) -> str:
         cprimer
     """
 
-    return header.split("|")[1].split("=")[-1]
+    return header.split('|')[1].split('=')[-1]
 
 def get_vprimer(header: str) -> str:
     """Obtains the vprimer from the header.
@@ -31,7 +50,7 @@ def get_vprimer(header: str) -> str:
         vprimer
     """
 
-    return header.split("|")[2].split("=")[-1]
+    return header.split('|')[2].split('=')[-1]
 
 def get_abundance(header: str) -> int:
     """Obtains the abundance counts from the header.
@@ -46,7 +65,7 @@ def get_abundance(header: str) -> int:
         abundance counts
     """
 
-    return int(header.split("|")[3].split("=")[-1])
+    return int(header.split('|')[3].split('=')[-1])
 
 def get_time(header: str) -> int:
     """Obtains the time from the header.
@@ -61,7 +80,7 @@ def get_time(header: str) -> int:
         time
     """
 
-    return int(header.split("|")[4].split("=")[-1])
+    return int(header.split('|')[4].split('=')[-1])
 
 def get_replicate(header: str) -> int:
     """Obtains the replicate from the header.
@@ -76,7 +95,7 @@ def get_replicate(header: str) -> int:
         replicate
     """
 
-    return int(header.split("|")[6].split("=")[-1])
+    return int(header.split('|')[6].split('=')[-1])
 
 def fasta_parse(fasta: str) -> Tuple[List[str], List[str]]:
     """Reads a fasta file and prases the headers and the sequences.
@@ -118,9 +137,9 @@ def write_to_fasta(outfile: str, headers: List[str], sequences: List[str]) -> No
     None
     """
 
-    with open(outfile, "w") as outf:
+    with open(outfile, 'w') as outf:
         for i, header in enumerate(headers):
-            outf.write(">"+header + "\n" + sequences[i] + "\n")
+            outf.write('>'+header + '\n' + sequences[i] + '\n')
 
 def update_header(header: str, abundance: int) -> str:
     """Changes abundance count in header.
@@ -138,9 +157,9 @@ def update_header(header: str, abundance: int) -> str:
         String containing updated abundance.
     """
 
-    header_split = header.split("|")
-    header_split[3] = "DUPCOUNT=" + str(abundance)
-    updated_header = "|".join(header_split)
+    header_split = header.split('|')
+    header_split[3] = 'DUPCOUNT=' + str(abundance)
+    updated_header = '|'.join(header_split)
     return updated_header
 
 def sort_data_by_abundance(headers: List[str], sequences: List[str]) -> Tuple[List[str], List[str]]:
@@ -217,7 +236,7 @@ def error_correct_marginal(headers: List[str], sequences: List[str],
         #  The sequence has already been absorbed.
         if sorted_abundances[i] == 0:
             continue
-        parent_name = sorted_headers[i].split("|")[0]
+        parent_name = sorted_headers[i].split('|')[0]
         for j,seq2 in reversed(list(enumerate(sorted_sequences))):
             if i == j:
                 break
@@ -243,7 +262,7 @@ def error_correct_marginal(headers: List[str], sequences: List[str],
                 if parent_name not in parent_child:
                     parent_child[parent_name] = []
                 #  Add merged sequences as children to parent sorted_headers[i].
-                parent_child[parent_name].append(sorted_headers[j].split("|")[0])
+                parent_child[parent_name].append(sorted_headers[j].split('|')[0])
                 #  Update the abundances.
                 sorted_abundances[i] += sorted_abundances[j]
                 sorted_abundances[j] = 0
@@ -300,7 +319,7 @@ def error_correct_total(headers: List[str], sequences: List[str],
         #  The sequence has already been absorbed.
         if sorted_abundances[i] == 0:
             continue
-        parent_name = sorted_headers[i].split("|")[0]
+        parent_name = sorted_headers[i].split('|')[0]
         for j,seq2 in reversed(list(enumerate(sorted_sequences))):
             if i == j:
                 break
@@ -315,7 +334,7 @@ def error_correct_total(headers: List[str], sequences: List[str],
                 if parent_name not in parent_child:
                     parent_child[parent_name] = []
                 #  Add merged sequences as children to parent sorted_headers[i].
-                parent_child[parent_name].append(sorted_headers[j].split("|")[0])
+                parent_child[parent_name].append(sorted_headers[j].split('|')[0])
                 #  Update the abundances.
                 sorted_abundances[i] += sorted_abundances[j]
                 sorted_abundances[j] = 0
@@ -345,18 +364,22 @@ def group_data(headers: List[str], sequences: List[str]) -> dict:
 
     Parameters
     ----------
-    lineage : (dict)
-              nested dictionaries of lineages [V][J][L][cluster_id]
+    headers : list
+        List of headers.
+    sequences : list
+        List of sequences.
 
     Returns
     -------
-    condensed_lineages : (dict)
-                         dictionary of lineages by [(V, J, L, cluster_id)]
+    grouped_data : (dict)
+        Nested dictionary with keys described above, where each key gives a dictionary
+        with keys ['headers', 'sequences'].
     """
+
     #  Group by sequence length, c primer, v primer,
     #  time, and replicate. What grouping is determined
     #  by how much information is in the header.
-    num_header_info = len(headers[0].split("|"))
+    num_header_info = len(headers[0].split('|'))
     if num_header_info >= 7:
         key_func=lambda h_in,s_in: (len(s_in), get_cprimer(h_in),
                                     get_vprimer(h_in), get_time(h_in),
@@ -368,8 +391,8 @@ def group_data(headers: List[str], sequences: List[str]) -> dict:
         key_func=lambda h_in,s_in: (len(s_in), get_cprimer(h_in),
                                     get_vprimer(h_in))
     elif num_header_info < 4:
-        print("Missing information in header.\n",
-              "Cannot group sequences correctly." )
+        print('Missing information in header.\n',
+              'Cannot group sequences correctly.')
         return
 
     grouped_data = {}

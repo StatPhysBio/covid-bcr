@@ -1,5 +1,24 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""Script to run the entire pipeline performed on sequences used in paper.
+    Copyright (C) 2020 Montague, Zachary
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+
 from utils import *
-from error_correct import *
+from error_correct import error_correct_marginal, error_correct_total, group_data
 from vjl_slc import vjl_slc
 from lineage_fisher_exact_test import *
 
@@ -19,17 +38,17 @@ def load_abstar(abstar_file: str) -> dict:
 
     Parameters
     ----------
-    abstar_file : (string)
-                  path to abstar .json output
+    abstar_file : string
+        Path to abstar .json output.
 
     Returns
     -------
-    annotations : (dict)
-                  dictionary of directiony of annotations split by types of productivity.
-                  keys of the first dictionary are ['productive', 'unproductive',
-                  'stop_in_cdr3', 'other']. Keys in the second dictionary come
-                  from the sequence header/id for each annotation. This makes
-                  for easy lookup when altering abundances.
+    annotations : dict
+        Dictionary of directiony of annotations split by types of productivity.
+        keys of the first dictionary are ['productive', 'unproductive',
+        'stop_in_cdr3', 'other']. Keys in the second dictionary come
+        from the sequence header/id for each annotation. This makes
+        for easy lookup when altering abundances.
     """
 
     num_N = 0
@@ -60,14 +79,14 @@ def load_abstar(abstar_file: str) -> dict:
             continue
         #  Remove any annotations in which the input
         #  sequence has an N in it.
-        if data_dict['raw_input'].strip("N").count("N") != 0:
+        if data_dict['raw_input'].strip('N').count('N') != 0:
             num_N += 1
             continue
         passed += 1
 
         #  Save the annotation to the dictionary
         #  using a unique key.
-        seq_key = data_dict['seq_id'].split("|")[0]
+        seq_key = data_dict['seq_id'].split('|')[0]
         if data_dict['prod'] == 'yes':
             annotations['productive'][seq_key] = data_dict
         #  We use out-of-frame sequences exclusively
@@ -79,7 +98,7 @@ def load_abstar(abstar_file: str) -> dict:
         #  Stop codons in the CDR3 are more likely
         #  occur from vdj recombination and 
         #  junctional diversity than sequencing error alone.
-        elif "*" in data_dict['junc_aa']:
+        elif '*' in data_dict['junc_aa']:
             annotations['stop_in_cdr3'][seq_key] = data_dict
         #  Stop codons not in the CDR3 are more likely
         #  to have been from sequencing error. If one
@@ -88,11 +107,11 @@ def load_abstar(abstar_file: str) -> dict:
         else:
             annotations['other'][seq_key] = data_dict
 
-    print("Loading abstar log:"
-          "\nLength_fail",len_fail,
-          "\nD_gene_fail",d_fail,
-          "\nN_filtered", num_N,
-          "\nCDR3_fail",cdr3_fail,
+    print('Loading abstar log:'
+          '\nLength_fail',len_fail,
+          '\nD_gene_fail',d_fail,
+          '\nN_filtered', num_N,
+          '\nCDR3_fail',cdr3_fail,
           '\nabstar_pass', passed)
     return annotations
 
@@ -105,12 +124,13 @@ def has_shm_indels(annotation: dict) -> bool:
 
     Parameters
     ----------
-    annotation : (dict)
-                 dictionary containing annotation output for a sequence
+    annotation : dict
+        Dictionary containing annotation output for a sequence.
 
     Returns
     -------
-    bool if there is any difference between gapped and ungapped alignments
+    bool
+        True if there is any difference between gapped and ungapped alignments.
     """
 
     return ((annotation['vdj_nt'] != annotation['gapped_vdj_nt'])
@@ -128,17 +148,17 @@ def cdr3_position(annotation: dict, nt: bool = True, junc: bool = False) -> tupl
 
     Parameters
     ----------
-    annotation : (dict)
-                 dictionary containing annotation output for a sequence
-    nt : (bool), optional
-         use nucleotide output, otherwise amino acid
-    junc : (bool), optional
-           use junction, otherwise use CDR3 without invariant residues
+    annotation : dict
+        Dictionary containing annotation output for a sequence.
+    nt : bool, optional
+        Use nucleotide output, otherwise amino acid.
+    junc : bool, optional
+        Use junction, otherwise use CDR3 without invariant residues.
 
     Returns
     -------
-    (cdr3_start, cdr3_end) : (tuple[str])
-                             tuple of start and end positions of CDR3 sequence
+    (cdr3_start, cdr3_end) : tuple[str]
+        Tuple of start and end positions of CDR3 sequence.
     """
 
     if nt:
@@ -170,14 +190,14 @@ def run_error_correction(annotations: dict, keys: list) -> None:
 
     Parameters
     ----------
-    annotation : (dict)
-                 dictionary containing annotation output for a sequence
-    keys : (list)
-           list of string keys in annotations on which error correction
-           should be performed. For conservative error correction, perform
-           error correction on productives only and then unproductives only.
-           For more liberal error correction, you could include sequences
-           with stops not in the CDR3, i.e. the key called "other"
+    annotation : dict
+        Dictionary containing annotation output for a sequence.
+    keys : list
+        List of string keys in annotations on which error correction
+        will be performed. For conservative error correction, perform
+        error correction on productives only and then unproductives only.
+        For more liberal error correction, you could include sequences
+        with stops not in the CDR3, i.e. the key called "other".
 
     Returns
     -------
@@ -209,8 +229,8 @@ def run_error_correction(annotations: dict, keys: list) -> None:
 
         total_output = error_correct_total(marginal_output[0],
                                            marginal_output[1],
-                                           d_tol=2,
-                                           a_tol=None)
+                                           d_thresh=2,
+                                           a_thresh=None)
 
         grouped_data[key]['headers'] = total_output[0]
         grouped_data[key]['sequences'] = total_output[1]
@@ -237,16 +257,16 @@ def run_error_correction(annotations: dict, keys: list) -> None:
         if abun > 0:
             final_unique += 1
             final_abundance += abun
-    print("-".join(keys) + '_before_correction', initial_unique_count, initial_abundance_count)
-    print("-".join(keys) + '_after_marginal_correction', marginal_unique, marginal_abundance)
-    print("-".join(keys) + '_after_total_correction', final_unique, final_abundance)
+    print('-'.join(keys) + '_before_correction', initial_unique_count, initial_abundance_count)
+    print('-'.join(keys) + '_after_marginal_correction', marginal_unique, marginal_abundance)
+    print('-'.join(keys) + '_after_total_correction', final_unique, final_abundance)
 
     #  Update abundances and delete 0 abundance sequences.
     for key in keys:
         updated_dict_unique = 0
         updated_dict_abundance = 0
         for h in final_headers:
-            seq_key = h.split("|")[0]
+            seq_key = h.split('|')[0]
             try:
                 abun = get_abundance(h)
                 if abun > 0:
@@ -264,11 +284,11 @@ def filter_after_error_correction(annotations: dict, annkey: str) -> None:
 
     Parameters
     ----------
-    annotations : (dict)
-                 dictionary containing annotation output for a sequence
-    keys : (str)
-           a key in the annotations dictionary: ['productive', 'unproductive',
-           'stop_in_cdr3', 'other']
+    annotations : dict
+        Dictionary containing annotation output for a sequence.
+    keys : str
+        A key in the annotations dictionary: ['productive', 'unproductive',
+        'stop_in_cdr3', 'other'].
 
     Returns
     -------
@@ -281,8 +301,8 @@ def filter_after_error_correction(annotations: dict, annkey: str) -> None:
 
     for seq_key in list(annotations[annkey].keys()):
         annotation = annotations[annkey][seq_key]
-        vprimer = get_vprimer(annotation['seq_id']).split("-")[0]
-        v_gene =  annotation["v_gene"]["fam"]
+        vprimer = get_vprimer(annotation['seq_id']).split('-')[0]
+        v_gene =  annotation['v_gene']['fam']
         if v_gene != vprimer:
             bad_primer += 1
             del annotations[annkey][seq_key]
@@ -303,19 +323,19 @@ def annotations_pipeline(infile: str) -> dict:
     Parameters
     ----------
     infile : (str)
-             path to abstar file
+        Path to abstar file.
 
     Returns
     -------
     None
     """
 
-    patient = infile.split("/")[-1].split(".")[0]
+    patient = infile.split('/')[-1].split('.')[0]
     annotations = load_abstar(infile)
     for key in annotations:
         abun = sum([get_abundance(annotations[key][seq_key]['seq_id'])
                     for seq_key in annotations[key]])
-        print("initial_" + key, len(annotations[key]), abun)
+        print('initial_' + key, len(annotations[key]), abun)
 
     run_error_correction(annotations, ['productive'])
     run_error_correction(annotations, ['unproductive'])
@@ -340,16 +360,16 @@ def make_lineages(infile: str) -> dict:
 
     Parameters
     ----------
-    infile : (str)
-             path to annotations file
+    infile : str
+        Path to annotations file.
 
     Returns
     -------
-    lineages : (dict)
-               nested dictionaries of clustered annotations [V][J][L][cluster_id]
+    lineages : dict
+        Nested dictionaries of clustered annotations [V][J][L][cluster_id].
     """
 
-    patient = infile.split("/")[-1].split("_")[0]
+    patient = infile.split('/')[-1].split('_')[0]
     annotations = json_open(infile)
     productive_lineages = vjl_slc(annotations['productive'],abstar=True)
     unproductive_lineages = vjl_slc(annotations['unproductive'],abstar=True)
@@ -362,20 +382,20 @@ def update_header(header: str, abundance: int) -> str:
 
     Parameters
     ----------
-    header : (str)
-             string containing information about a sequence/annotation
-    abundance : (int)
-                abundance count to replace that currently in header
+    header : str
+        String containing information about a sequence/annotation,
+    abundance : int
+        Abundance count to replace that currently in header.
 
     Returns
     -------
-    updated_header : (str)
-                     string containing updated abundance
+    updated_header : str
+        String containing updated abundance.
     """
 
-    header_split = header.split("|")
-    header_split[3] = "DUPCOUNT=" + str(abundance)
-    updated_header = "|".join(header_split)
+    header_split = header.split('|')
+    header_split[3] = 'DUPCOUNT=' + str(abundance)
+    updated_header = '|'.join(header_split)
     return updated_header
 
 def get_naive_cdr3(annotation: dict,  nt: bool = True, junc: bool = True) -> str:
@@ -383,17 +403,17 @@ def get_naive_cdr3(annotation: dict,  nt: bool = True, junc: bool = True) -> str
 
     Parameters
     ----------
-    annotation : (dict)
-                 dictionary containing annotation output for a sequence
-    nt : (bool), optional
-         use nucleotide output, otherwise amino acid
-    junc : (bool), optional
-           use junction, otherwise use CDR3 without invariant residues
+    annotation : dict
+        Dictionary containing annotation output for a sequence.
+    nt : bool, optional
+        Use nucleotide output, otherwise amino acid.
+    junc : bool, optional
+        Use junction, otherwise use CDR3 without invariant residues.
 
     Returns
     -------
-    naive_cdr3 : (str)
-                 CDR3 of naive sequence
+    naive_cdr3 : str
+        CDR3 of naive sequence.
     """
 
     if nt:
@@ -416,13 +436,13 @@ def merge_replicates_within_lineage(lineage: list) -> list:
 
     Parameters
     ----------
-    lineage : (list)
-              list of annotations
+    lineage : list
+        List of annotations.
 
     Returns
     -------
-    condensed_lineage : (list)
-                        list of annotations after merging replicates
+    condensed_lineage : list
+        List of annotations after merging replicates.
     """
 
     #  Create dictionary to identify identical sequences across replicates
@@ -451,11 +471,11 @@ def merge_replicates_within_lineage(lineage: list) -> list:
                 naive_cdr3 = get_naive_cdr3(annotation)
                 if naive_cdr3 != naive_cdr3_0:
                     replicate = get_replicate(annotation['seq_id'])
-                    print("Different annotation results for these replicates:", replicate_0, replicate)
+                    print('Different annotation results for these replicates:', replicate_0, replicate)
                     print(replicate_0, annotation_0['raw_input'], naive_cdr3_0)
                     print(replicate, annotation['raw_input'], naive_cdr3)
-                    print("\n\n")
-            annotation_0['seq_id'] = update_uid(annotation_0['seq_id'], abundance)
+                    print('\n\n')
+            annotation_0['seq_id'] = update_header(annotation_0['seq_id'], abundance)
             condensed_lineage.append(annotation_0)
         else:
             condensed_lineage.append(replicate_dict[key][0])
@@ -466,13 +486,13 @@ def merge_replicates(lineages: dict) -> dict:
 
     Parameters
     ----------
-    lineage : (dict)
-              nested dictionaries of lineages [V][J][L][cluster_id]
+    lineage : dict
+        Nested dictionaries of lineages [V][J][L][cluster_id].
 
     Returns
     -------
-    condensed_lineages : (dict)
-                         dictionary of lineages by [(V, J, L, cluster_id)]
+    condensed_lineages : dict
+        Dictionary of lineages by [(V, J, L, cluster_id)].
     """
 
     condensed_lineages = {}
@@ -494,13 +514,13 @@ def get_common_naive_abstar(lineage: list, nt: bool = True, junc: bool = True) -
 
     Parameters
     ----------
-    lineage : (list)
-              list of annotations
+    lineage : list
+        List of annotations.
 
     Returns
     -------
-    most_common_naive_cdr3 : (str)
-                             most common naive CDR3 in a lineage
+    most_common_naive_cdr3 : str
+        Most common naive CDR3 in a lineage.
     """
 
     naive_cdr3s = []
@@ -509,18 +529,18 @@ def get_common_naive_abstar(lineage: list, nt: bool = True, junc: bool = True) -
     counter = sort_dict_by_value(Counter(naive_cdr3s))
     for key in counter:
         if key is None:
-            return ""
+            return ''
         if nt:
-            if "*" in translate(key):
+            if '*' in translate(key):
                 continue
             else:
                 return key
         else:
-            if "*" in key:
+            if '*' in key:
                 continue
             else:
                 return key
-    return ""
+    return ''
 
 def create_sonia_input(infile: str) -> pd.DataFrame:
     """Generates a csv of information about lineage progenitors to use as input for SONIA.
@@ -538,19 +558,19 @@ def create_sonia_input(infile: str) -> pd.DataFrame:
 
     Parameters
     ----------
-    infile : (str)
-             path to file containing lineages
+    infile : str
+        Path to file containing lineages.
 
     Returns
     -------
-    sonia_df : (pandas.DataFrame)
-               DataFrame object containing information for SONIA
+    sonia_df : pandas.DataFrame
+        DataFrame object containing information for SONIA.
     """
 
     in_lineages = json_open(infile)['productive']
     lineages = merge_replicates(in_lineages)
     sonia_input = []
-    patient = infile.split("/")[-1].split("_")[0]
+    patient = infile.split('/')[-1].split('_')[0]
 
     for index,key in enumerate(lineages):
         progenitor_cdr3 = get_common_naive_abstar(lineages[key])

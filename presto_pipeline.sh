@@ -1,4 +1,45 @@
 #!/bin/bash
+#
+#    Copyright (C) Montague, Zachary
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+#    Script used to run pRESTO preprocessing pipeline. Useful when using
+#    schedulers like SLURM on HPCs. The only VARIABLE names that should be
+#    changed are SCRATCHDIR, CONDADIR, SOFTWAREDIR, and COVIDDIR.
+#    The script look for directories in the ${COVIDDIR}/raw_data/
+#    which point to the paired-reads for a replicate. Creates directories
+#    for assembling, filtering, masking, and collapsing and saves
+#    corresponding files to those directories. fastx is used to convert
+#    the deduplicated fastas into one-line sequence fastas.
+#
+#    Required software:
+#    pRESTO https://presto.readthedocs.io/en/stable/
+#    fastx  http://hannonlab.cshl.edu/fastx_toolkit/
+#
+#    Parameters
+#    ----------
+#    -s : Name of sample directory in ${COVIDDIR}/raw_data/, e.g. 43-1
+#    -a : Option so that paired-end reads are assembled
+#    -f : Option for filtering out the reads, filtering already specified
+#    -m : Option for masking primers, primers specified in ${COVIDDIR}/raw_data/primers
+#    -c : Option for collapsing unique sequences
+#
+#    Returns
+#    -------
+#    None
+
 #SBATCH --job-name=covid_preprocess
 #SBATCH -p spe 
 #SBATCH -A spe
@@ -23,7 +64,7 @@ PRIMERDIR=${COVIDDIR}raw_data/primers/
 DEDUPONELINE=${COVIDDIR}oneline_collapsed/
 ERRORDIR=${COVIDDIR}error_corrected/
 
-usage() { echo "Usage: $0 [-s <string>] [-a] [-f] [-m] [-c] ][-e] [-h]" 1>&2; exit 1; }
+usage() { echo "Usage: $0 [-s <string>] [-a] [-f] [-m] [-c] [-h]" 1>&2; exit 1; }
 while getopts ":s:afmceh" arg; do
     case $arg in
         s) SAMPLENUM=${OPTARG}
@@ -34,7 +75,6 @@ while getopts ":s:afmceh" arg; do
         f) FILTER=true;;
         m) MASK=true;;
         c) COLLAPSE=true;;
-        e) ERRORCORRECT=true;;
         h)  usage;  exit 0;;
         \? ) echo "Unknown option: -$OPTARG\n" >&2; exit 1;;
         : ) echo -e "Missing argument for -$OPTARG\n" >&2; exit 1;;
@@ -62,7 +102,6 @@ echo "ASSEMBLE ${ASSEMBLE}"
 echo "FILTER $FILTER"
 echo "MASK $MASK"
 echo "COLLAPSE $COLLAPSE"
-echo "ERROR CORRECT $ERRORCORRECT"
 
 #if [ -z "${a}" ] && [ -z "${f}" ] && [ -z "${m}" ] && [ -z "${c}" ]; then
 #    usage
@@ -132,29 +171,4 @@ if [ "$COLLAPSE" = true ]; then
    
     #  Convert sequence in fasta file to one line.
     fasta_formatter -i ${DEDUPDIR}unique_${FILENAME}_collapse-unique.fasta -o ${DEDUPONELINE}${FILENAME}_collapse-unique.fasta
-fi
-
-#========== Error Correct Singleton Sequences ==========
-if [ "$ERRORCORRECT" = true ]; then
-    if [ ! -d "$ERRORDIR" ]; then
-      mkdir $ERRORDIR
-    fi
-
-    #  Export conda functions to be available to subshell.
-    source ${RUNCONDA} 
-    
-    #  Create conda environment if necessary.
-    if [ ! -d "${CONDAENVDIR}" ]; then
-      echo "Conda environment covid-bcr does not exist. Creating now."
-      conda env create -f env.yml
-    fi
-    
-    #  Change to conda environment.
-    conda activate covid-bcr
-    
-    #  Error correct data.
-    python error_correct.py ${DEDUPONELINE}${FILENAME}_collapse-unique.fasta > ${ERRORDIR}${FILENAME}_corrected.fasta
-    
-    #  Deactivate conda environment.
-    conda deactivate
 fi
