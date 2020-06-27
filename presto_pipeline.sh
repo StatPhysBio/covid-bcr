@@ -22,7 +22,8 @@
 #    which point to the paired-reads for a replicate. Creates directories
 #    for assembling, filtering, masking, and collapsing and saves
 #    corresponding files to those directories. fastx is used to convert
-#    the deduplicated fastas into one-line sequence fastas.
+#    the deduplicated fastas into one-line sequence fastas. fastx was added 
+#    to the PATH variable when this was run.
 #
 #    Required software:
 #    pRESTO https://presto.readthedocs.io/en/stable/

@@ -119,7 +119,7 @@ def get_function(header: str) -> str:
 
     return header[3]
 
-def trim_dict(gene_dict):
+def trim_dict(gene_dict: dict) -> dict:
     """Saves only the first two alleles in a gene.
 
     There's no need for all the alleles from a gene in order for IGoR
@@ -150,7 +150,7 @@ def trim_dict(gene_dict):
             out_dict[gene + "*" + allele] = gene_dict[gene][allele]
     return out_dict
 
-def get_gene_dict(gapped_fasta, gene='V'):
+def get_gene_dict(gapped_fasta: str, gene: str = 'V') -> dict:
     """Creates a dictionary of information taken from a gapped fasta file.
 
     Parameters
@@ -189,7 +189,7 @@ def get_gene_dict(gapped_fasta, gene='V'):
                                            'func':get_function(line)}
     return trim_dict(gene_dict)
 
-def write_to_csv(outfile, gene_dict, program='igor'):
+def write_to_csv(outfile: str, gene_dict: dict, program: str = 'igor') -> None:
     """Writes gene CDR3 anchor information to a csv for a given software input.
 
     IGoR uses ; as a delimiter. SONIA uses , as a delimiter.
@@ -230,7 +230,7 @@ def write_to_csv(outfile, gene_dict, program='igor'):
     else:
         print("Option not recognized. No file written.")
 
-def get_genomic_ref(fasta, outfile, gene_dict):
+def get_genomic_ref(fasta: str, outfile: str, gene_dict:dict) -> None:
     """Parses ungapped fasta file and writes genes+alleles to fasta file.
 
     This function uses only the alleles which were selected from the gapped fasta.
@@ -270,13 +270,13 @@ def main():
     softwares = ['igor', 'sonia']
     for gene in genes:
         #  CHANGE ME HERE.
-        gapped_fasta_file = '/gscratch/stf/zachmon/covid/covid-bcr/abstar_gapped_'+gene+'.fasta'
+        gapped_fasta_file = '/gscratch/stf/zachmon/covid/covid-bcr/ref_genome/abstar_gapped_'+gene+'.fasta'
         gene_dict = get_gene_dict(gapped_fasta_file, gene=gene)
         for key in softwares:
             output_fasta_file_anchor = key + '_' + gene + '_gene_CDR3_anchors.csv'
             write_to_csv(output_fasta_file_anchor, gene_dict, program=key)
         #  CHANGE ME HERE.
-        genomic_file = '/gscratch/stf/zachmon/covid/covid-bcr/abstar_genomic_' + gene + 's.fasta'
+        genomic_file = '/gscratch/stf/zachmon/covid/covid-bcr/ref_genome/abstar_genomic_' + gene + 's.fasta'
         get_genomic_ref(genomic_file,
                         genomic_file.replace(".fasta", "_for_igor.fasta"),
                         gene_dict)
