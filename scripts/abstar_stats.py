@@ -4,7 +4,6 @@ import operator
 import collections
 import numpy as np
 
-
 def initialize_stats_dict(d, label):
     in_frame_no_indels = {"naive seqs": {},
                "input seqs": {},
@@ -23,6 +22,8 @@ def initialize_stats_dict(d, label):
                "j del": {},
                "d5 del": {},
                "d3 del": {},
+               "vd del": {},
+               "dj del": {},
                "duplicates":{},
                "multiplicities":{},
                "unproductive": []
@@ -47,6 +48,8 @@ def initialize_stats_dict(d, label):
                "j del": {},
                "d5 del": {},
                "d3 del": {},
+               "vd del": {},
+               "dj del": {},
                "shm ins": {},
                "shm dels": {},
                "shm sum": {},
@@ -69,6 +72,8 @@ def initialize_stats_dict(d, label):
                "dj ins": {},
                "v del": {},
                "j del": {},
+               "vd del": {},
+               "dj del": {},
                "d5 del": {},
                "d3 del": {},
                "duplicates":{},
@@ -95,6 +100,8 @@ def initialize_stats_dict(d, label):
                "j del": {},
                "d5 del": {},
                "d3 del": {},
+               "vd del": {},
+               "dj del": {},
                "shm ins": {},
                "shm dels": {},
                "shm sum": {},
@@ -144,8 +151,8 @@ def fill_dict(s_dict, ann, uid):
     s_dict['naive seqs'][uid] = ann['vdj_germ_nt']
     s_dict['input seqs'][uid] = ann['raw_input']
 
-    #  Collect uids with stop codons
-    if ann['prod'] == 'no':
+    #  Collect uids oofs 
+    if ann['junction_in_frame'] == 'no':
         s_dict['unproductive'].append(uid)
 
     #  Gene statistics
@@ -177,6 +184,8 @@ def fill_dict(s_dict, ann, uid):
     add_item_to_key(s_dict['j del'], ann['exo_trimming']['join_5'], [uid])
     add_item_to_key(s_dict['d5 del'], ann['exo_trimming']['div_5'], [uid])
     add_item_to_key(s_dict['d3 del'], ann['exo_trimming']['div_3'], [uid])
+    add_item_to_key(s_dict['vd del'], ann['exo_trimming']['var_3'] + ann['exo_trimming']['div_5'], [uid])
+    add_item_to_key(s_dict['dj del'], ann['exo_trimming']['div_3'] + ann['exo_trimming']['join_5'], [uid])
 
 
 def fill_dict_indels(s_dict, ann, uid):
@@ -198,6 +207,9 @@ def get_stats(s_dict, annotations):
     for j, ann in enumerate(annotations):
         uid = ann['seq_id']
         seq = ann['raw_input']
+
+        if get_abundance(uid) == 1:
+            continue
 
         #  Throw away sequences with N not put in by partis
         seq_without_N_buffer = remove_N_buffer(seq)
@@ -224,10 +236,10 @@ def get_stats(s_dict, annotations):
 def create_stats_file(in_file):
     file_name = in_file.split("/")[-1]
     patient = file_name.split("_")[0]
-    save_dir = in_file.replace(file_name, "")
-    save_name = save_dir + patient + "_stats.pickle"
+    save_dir = '/gscratch/stf/zachmon/covid/stats/'
+    save_name = save_dir + patient + "_stats_no_sings.pickle"
     print("\nBegin unpickling" + in_file)
-    full_annotations = unpickle(in_file)
+    full_annotations = json_open(in_file)['productive']
     print("Unpickled")
     s_dict = {}
     initialize_stats_dict(s_dict, patient)
