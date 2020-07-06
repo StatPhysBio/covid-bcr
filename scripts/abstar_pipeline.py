@@ -17,10 +17,10 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+import pandas as pd
 from utils import *
 from error_correct import error_correct_marginal, error_correct_total, group_data
 from vjl_slc import vjl_slc
-from lineage_fisher_exact_test import *
 
 def load_abstar(abstar_file: str) -> dict:
     """Loads and performs preliminary filtering on abstar output.
@@ -481,14 +481,16 @@ def merge_replicates_within_lineage(lineage: list) -> list:
             condensed_lineage.append(replicate_dict[key][0])
     return condensed_lineage
 
-def merge_replicates(lineages: dict) -> dict:
+def merge_replicates(lineages: dict, productive: bool = True) -> dict:
     """Apply replicate merging to each lineage.
 
     Parameters
     ----------
     lineage : dict
         Nested dictionaries of lineages [V][J][L][cluster_id].
-
+    productive : bool, optional
+        Bool to specify whether to keep lineages with unproductive progenitors.
+        Note: productive lineages can have unproductive progenitors due to uncertainty.
     Returns
     -------
     condensed_lineages : dict
@@ -496,14 +498,43 @@ def merge_replicates(lineages: dict) -> dict:
     """
 
     condensed_lineages = {}
-    for v in lineages:
-        for j in lineages[v]:
-            for l in lineages[v][j]:
-                for cluster_id in lineages[v][j][l]:
-                    condensed_lineages[(v,j,l,cluster_id)] = merge_replicates_within_lineage(lineages[v][j][l][cluster_id])
+    if productive:
+        for v in lineages:
+            for j in lineages[v]:
+                for l in lineages[v][j]:
+                    for cluster_id in lineages[v][j][l]:
+                        merged_lineage = merge_replicates_within_lineage(lineages[v][j][l][cluster_id])
+                        if get_lineage_progenitor_cdr3(merged_lineage) == '':
+                            continue
+                        condensed_lineages[(v,j,l,cluster_id)] = merge_replicates_within_lineage(lineages[v][j][l][cluster_id])
+    else:
+        for v in lineages:
+            for j in lineages[v]:
+                for l in lineages[v][j]:
+                    for cluster_id in lineages[v][j][l]:
+                        condensed_lineages[(v,j,l,cluster_id)] = merge_replicates_within_lineage(lineages[v][j][l][cluster_id])
     return condensed_lineages
 
-def get_common_naive_abstar(lineage: list, nt: bool = True, junc: bool = True) -> str:
+def get_lineage_progenitor(lineage: list) -> str:
+    """Obtains the most common VDJ germline sequence.
+
+    Parameters
+    ----------
+    lineage : list
+        List of annotations.
+
+    Returns
+    -------
+    most_common_naive : str
+        Most common VDJ germline sequence in a lineage.
+
+    """
+
+    germline_counter = Counter([annotation['vdj_germ_nt'] for annotation in lineage])
+    most_common_naive = germline_counter.most_common()[0][0]
+    return most_common_naive
+
+def get_lineage_progenitor_cdr3(lineage: list, nt: bool = True, junc: bool = True) -> str:
     """Obtains the most common naive cdr3 not containg a stop codon from a lineage.
 
     If the most common naive sequence of a lineage contains a stop
@@ -519,8 +550,9 @@ def get_common_naive_abstar(lineage: list, nt: bool = True, junc: bool = True) -
 
     Returns
     -------
-    most_common_naive_cdr3 : str
-        Most common naive CDR3 in a lineage.
+    str
+        Most common naive CDR3 in a lineage. If no such productive CDR3 exists,
+        returns an empty string instead.
     """
 
     naive_cdr3s = []
@@ -573,7 +605,7 @@ def create_sonia_input(infile: str) -> pd.DataFrame:
     patient = infile.split('/')[-1].split('_')[0]
 
     for index,key in enumerate(lineages):
-        progenitor_cdr3 = get_common_naive_abstar(lineages[key])
+        progenitor_cdr3 = get_lineage_progenitor_cdr3(lineages[key])
         if progenitor_cdr3 is None:
             continue
         if len(progenitor_cdr3) == 0:

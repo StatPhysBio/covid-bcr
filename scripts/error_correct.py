@@ -17,9 +17,9 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+from typing import List, Tuple, TextIO
 from Bio.SeqIO import parse
 import numpy as np
-from typing import List, Tuple, TextIO
 from jellyfish import hamming_distance
 
 def get_cprimer(header: str) -> str:

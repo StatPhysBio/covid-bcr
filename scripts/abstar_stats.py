@@ -1,261 +1,158 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""Script to get sequence statistics of filtered lineages and nonsingletons.
+    Copyright (C) 2020 Montague, Zachary
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+
 from utils import *
 import numpy as np
 import operator
 import collections
 import numpy as np
+from abstar_pipeline import merge_replicates, get_lineage_progenitor_cdr3, get_lineage_progenitor
 
-def initialize_stats_dict(d, label):
-    in_frame_no_indels = {"naive seqs": {},
-               "input seqs": {},
-               "v gene": {},
-               "j gene": {},
-               "d gene": {},
-               "cdr3 length": {},
-               "cdr3": {},
-               "cdr3 aa":{},
-               "cdr3 aa naive":{},
-               "vd_mono_freq": {"A":{}, "G":{}, "T":{}, "C":{}},
-               "dj_mono_freq": {"A":{}, "G":{}, "T":{}, "C":{}},
-               "vd ins": {},
-               "dj ins": {},
-               "v del": {},
-               "j del": {},
-               "d5 del": {},
-               "d3 del": {},
-               "vd del": {},
-               "dj del": {},
-               "duplicates":{},
-               "multiplicities":{},
-               "unproductive": []
-              }
-    in_frame_indels = {"naive seqs": {},
-               "input seqs": {},
-               "indel reversed seqs": {},
-               "indel gapped seqs": {},
-               "germline gapped seqs": {},
-               "v gene": {},
-               "j gene": {},
-               "d gene": {},
-               "cdr3 length": {},
-               "cdr3": {},
-               "cdr3 aa":{},
-               "cdr3 aa naive":{},
-               "vd_mono_freq": {"A":{}, "G":{}, "T":{}, "C":{}},
-               "dj_mono_freq": {"A":{}, "G":{}, "T":{}, "C":{}},
-               "vd ins": {},
-               "dj ins": {},
-               "v del": {},
-               "j del": {},
-               "d5 del": {},
-               "d3 del": {},
-               "vd del": {},
-               "dj del": {},
-               "shm ins": {},
-               "shm dels": {},
-               "shm sum": {},
-               "duplicates":{},
-               "multiplicities":{},
-               "unproductive": []
-              }
-    out_of_frame_no_indels = {"naive seqs": {},
-               "input seqs": {},
-               "v gene": {},
-               "j gene": {},
-               "d gene": {},
-               "cdr3 length": {},
-               "cdr3": {},
-               "cdr3 aa":{},
-               "cdr3 aa naive":{},
-               "vd_mono_freq": {"A":{}, "G":{}, "T":{}, "C":{}},
-               "dj_mono_freq": {"A":{}, "G":{}, "T":{}, "C":{}},
-               "vd ins": {},
-               "dj ins": {},
-               "v del": {},
-               "j del": {},
-               "vd del": {},
-               "dj del": {},
-               "d5 del": {},
-               "d3 del": {},
-               "duplicates":{},
-               "multiplicities":{},
-               "unproductive": []
-              }
-    out_of_frame_indels = {"naive seqs": {},
-               "input seqs": {},
-               "indel reversed seqs": {},
-               "indel gapped seqs": {},
-               "germline gapped seqs": {},
-               "v gene": {},
-               "j gene": {},
-               "d gene": {},
-               "cdr3 length": {},
-               "cdr3": {},
-               "cdr3 aa":{},
-               "cdr3 aa naive":{},
-               "vd_mono_freq": {"A":{}, "G":{}, "T":{}, "C":{}},
-               "dj_mono_freq": {"A":{}, "G":{}, "T":{}, "C":{}},
-               "vd ins": {},
-               "dj ins": {},
-               "v del": {},
-               "j del": {},
-               "d5 del": {},
-               "d3 del": {},
-               "vd del": {},
-               "dj del": {},
-               "shm ins": {},
-               "shm dels": {},
-               "shm sum": {},
-               "duplicates":{},
-               "multiplicities":{},
-               "unproductive": []
-              }
-    d[label] = {"invalid seqs": {},
-                "in frame no indels": in_frame_no_indels,
-                "in frame indels": in_frame_indels,
-                "out of frame no indels": out_of_frame_no_indels,
-                "out of frame indels": out_of_frame_indels}
+def initialize_stats_dict() -> dict:
+    """Creates dictionary that will contain sequence statistics for lineage progentiors and nonsingletons
 
-def get_shm_indel_stats(ann):
-    num_ins = []
-    num_dels = []
+    Parameters
+    ----------
+    None
 
-    qr_seq_with_gaps=ann['gapped_vdj_nt']
-    #qr_gap_positions = find_char(qr_seq_with_gaps, "-")
-    #qr_parts = partition_positions(qr_gap_positions)
+    Returns
+    -------
+    stats_dict : dict
+        Dictionary containing a list for each observable to be filled by examining
+        the annotation for a lineage progenitor and all nonsingletons in a lineage.
+     """
 
-    gl_seq_with_gaps=ann['gapped_vdj_germ_nt']
-    #gl_gap_positions = find_char(gl_seq_with_gaps, "-")
-    #gl_parts = partition_positions(gl_gap_positions)
+    stats_dict = {'nonsingletons': {'v gene': [],
+                                    'j gene': [],
+                                    'd gene': [],
+                                    'cdr3 length': [],
+                                    'vd ins': [],
+                                    'dj ins': [],
+                                    'vd del': [],
+                                    'dj del': []},
+                  'progenitors': {'v gene': [],
+                                  'j gene': [],
+                                  'd gene': [],
+                                  'cdr3 length': [],
+                                  'vd ins': [],
+                                  'dj ins': [],
+                                  'vd del': [],
+                                  'dj del': []}}
+    return stats_dict
 
-    dels = qr_seq_with_gaps.count("-")
-    ins = gl_seq_with_gaps.count("-")
-    return dels, ins
+def fill_dict(in_dict: dict, annotation: dict) -> None:
+    """Examines a single annotation and adds the values of the observables to the dictionary lists.
 
-def partition_positions(positions):
-    partitions = []
-    if len(positions) == 1:
-        return [positions]
-    while positions:
-        for i, p in enumerate(positions):
-            if p - positions[0] != i:
-                partitions.append(positions[:i])
-                positions = [x for x in positions
-                             if x not in positions[:i]]
-                break
-            if i == len(positions) - 1:
-                partitions.append(positions)
-                positions = []
-    return partitions
+    Parameters
+    ----------
+    in_dict : dict
+        Dictionary either for lineage progenitors or nonsingletons of a lineage
+        containing lists for each observable. See initialize_stats_dict()
+    annotation : dict
+        Dictionary containing annotation output for a sequence.
 
-def fill_dict(s_dict, ann, uid):
-    s_dict['naive seqs'][uid] = ann['vdj_germ_nt']
-    s_dict['input seqs'][uid] = ann['raw_input']
-
-    #  Collect uids oofs 
-    if ann['junction_in_frame'] == 'no':
-        s_dict['unproductive'].append(uid)
+    Returns
+    -------
+    None
+    """
 
     #  Gene statistics
-    v_gene = ann['v_gene']['gene']
-    j_gene = ann['j_gene']['gene']
-    d_gene = ann['d_gene']['gene']
-    add_item_to_key(s_dict['v gene'], v_gene, [uid])
-    add_item_to_key(s_dict['j gene'], j_gene, [uid])
-    add_item_to_key(s_dict['d gene'], d_gene, [uid])
+    in_dict['v gene'].append(annotation['v_gene']['gene'])
+    in_dict['j gene'].append(annotation['j_gene']['gene'])
+    in_dict['d gene'].append(annotation['d_gene']['gene'])
 
     #  CDR3 statistics
-    add_item_to_key(s_dict['cdr3 length'], len(ann['junc_nt']), [uid])
-    s_dict['cdr3'][uid] = ann['junc_nt']
-    s_dict['cdr3 aa'][uid] = ann['junc_aa']
-
-    #  Mono freq statistics
-    vd_ins = ann['junc_nt_breakdown']['n1_nt']
-    dj_ins = ann['junc_nt_breakdown']['n2_nt']
-    for key in s_dict['vd_mono_freq'].keys():
-        s_dict['vd_mono_freq'][key][uid] = vd_ins.count(key)
-        s_dict['dj_mono_freq'][key][uid] = dj_ins.count(key)
+    in_dict['cdr3 length'].append(len(annotation['junc_nt']))
 
     #  Insertion statistics
-    add_item_to_key(s_dict['vd ins'], len(vd_ins), [uid])
-    add_item_to_key(s_dict['dj ins'], len(dj_ins), [uid])
+    in_dict['vd ins'].append(len(annotation['junc_nt_breakdown']['n1_nt']))
+    in_dict['dj ins'].append(len(annotation['junc_nt_breakdown']['n2_nt']))
 
     #  Deletion statistics
-    add_item_to_key(s_dict['v del'], ann['exo_trimming']['var_3'], [uid])
-    add_item_to_key(s_dict['j del'], ann['exo_trimming']['join_5'], [uid])
-    add_item_to_key(s_dict['d5 del'], ann['exo_trimming']['div_5'], [uid])
-    add_item_to_key(s_dict['d3 del'], ann['exo_trimming']['div_3'], [uid])
-    add_item_to_key(s_dict['vd del'], ann['exo_trimming']['var_3'] + ann['exo_trimming']['div_5'], [uid])
-    add_item_to_key(s_dict['dj del'], ann['exo_trimming']['div_3'] + ann['exo_trimming']['join_5'], [uid])
+    in_dict['vd del'].append(annotation['exo_trimming']['var_3']
+                             + annotation['exo_trimming']['div_5'])
+    in_dict['dj del'].append(annotation['exo_trimming']['div_3']
+                             + annotation['exo_trimming']['join_5'])
 
+def get_stats(stats_dict: dict, lineage: list):
+    """Records statistics of annotations in a lineage.
 
-def fill_dict_indels(s_dict, ann, uid):
-    #  shm useful seqs
-    #  for figuring out other statistics but not needed anymore?
-    #s_dict['indel reversed seqs'][uid] = ann['indel_reversed_seqs'][0]
-    #s_dict['indel gapped seqs'][uid] = ann['qr_gap_seqs'][0]
-    #s_dict['germline gapped seqs'][uid] = ann['gl_gap_seqs'][0]
+    Parameters
+    ----------
+    stats_dict : dict
+        Dictionary containing statistics of sequence observables for lineage
+        progenitors and nonsingletons.
+    lineage : list
+        List of annotations.
+    Returns
+    -------
+    None
+    """
 
-    #  shm indel statistics
-    shm_ins, shm_dels = get_shm_indel_stats(ann)
-    add_item_to_key(s_dict['shm ins'], shm_ins, [uid])
-    add_item_to_key(s_dict['shm dels'], shm_dels, [uid])
-    add_item_to_key(s_dict['shm sum'], shm_ins - shm_dels, [uid])
+    progenitor_cdr3 = get_lineage_progenitor_cdr3(lineage)
+    if progenitor_cdr3 == '' or len(lineage) < 3:
+        return
+    progenitor_sequence = get_lineage_progenitor(lineage)
+    progenitor_stats_recorded = False
 
-def get_stats(s_dict, annotations):
-    s_dict['total'] = len(list(annotations))
-    bad_n = 0
-    for j, ann in enumerate(annotations):
-        uid = ann['seq_id']
-        seq = ann['raw_input']
-
-        if get_abundance(uid) == 1:
+    for j, annotation in enumerate(lineage):
+        #  Get statistics for the lineage progenitor. The lineage progenitor annotation
+        #  might come from a singleton or nonsingleton.
+        if progenitor_stats_recorded == False and annotation['vdj_germ_nt'] == progenitor_sequence:
+            fill_dict(stats_dict['progenitors'], annotation)
+            progenitor_stats_recorded = True
+        #  Get statistics for nonsingletons only.
+        if get_abundance(annotation['seq_id']) == 1:
             continue
+        fill_dict(stats_dict['nonsingletons'], annotation)
 
-        #  Throw away sequences with N not put in by partis
-        seq_without_N_buffer = remove_N_buffer(seq)
-        if seq_without_N_buffer.count("N") > 0:
-            bad_n += 1
-            continue
+def create_stats_file(infile: str) -> None:
+    """Obtains lineages from the file and obtains the statistics.
 
-        in_frame = (ann['junction_in_frame'] == 'yes')
-        if in_frame:
-            frame_key = 'in frame'
-        else:
-            frame_key = 'out of frame'
+    Parameters
+    ----------
+    infile : str
+        String to path of lineage json file.
+    Returns
+    -------
+    None
+    """
 
-        has_shm = (ann['gapped_vdj_nt'] != ann['vdj_nt']) or (ann['gapped_vdj_germ_nt'] != ann['vdj_germ_nt'])
-        if has_shm:
-            frame_key += ' indels'
-        else:
-            frame_key += ' no indels'
-
-        fill_dict(s_dict[frame_key], ann, uid)
-        if has_shm:
-            fill_dict_indels(s_dict[frame_key], ann, uid)
-
-def create_stats_file(in_file):
-    file_name = in_file.split("/")[-1]
+    file_name = infile.split("/")[-1]
     patient = file_name.split("_")[0]
     save_dir = '/gscratch/stf/zachmon/covid/stats/'
-    save_name = save_dir + patient + "_stats_no_sings.pickle"
-    print("\nBegin unpickling" + in_file)
-    full_annotations = json_open(in_file)['productive']
-    print("Unpickled")
-    s_dict = {}
-    initialize_stats_dict(s_dict, patient)
-    print("Initialized dict")
-    get_stats(s_dict[patient], full_annotations)
-    print("Got stats")
-    print("Saving stats file", save_name)
-    pickle_save(save_name, s_dict)
-    print("Pickled stats")
+    save_name = save_dir + patient + "_final_stats.json"
+    lineages = merge_replicates(json_open(in_file)['productive'], productive=True)
+    stats_dict = initialize_stats_dict()
+
+    #  Loop over all lineages.
+    for key in lineages:
+       get_stats(stats_dict, lineages[key])
+    json_save(save_name, stats_dict)
 
 def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description='Gets relevant stats from abstar file')
-    parser.add_argument('--infile', type=str, help='path to abstar pickled file')
+        description='Gets relevant stats of productive lineage progenitors '
+                    'and nonsingletons in productive lineages')
+    parser.add_argument('--infile', type=str, help='path to abstar lineage json file')
     args = parser.parse_args()
     create_stats_file(args.infile)
 
