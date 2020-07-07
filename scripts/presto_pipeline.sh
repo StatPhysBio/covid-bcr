@@ -84,29 +84,11 @@ while getopts ":s:afmceh" arg; do
 done
 shift $((OPTIND-1))
 
-#  Ensure sample num is an integer.
-#if ! [[ "$SAMPLENUM" =~ ^[0-9]+$ ]]; then
-#    echo "Sample num must be an interger."
-#    usage
-#    exit 1
-#fi
-
-#  Ensure sample num is between 1 and 18.
-#  TODO Update when more samples become available.
-#if [[ "$SAMPLENUM" -gt 18 ]]; then
-#    echo "Sample num is between 1 and 18." >&2
-#    usage
-#    exit 1
-#fi
 echo "SAMPLE NUM $SAMPLENUM"
 echo "ASSEMBLE ${ASSEMBLE}"
 echo "FILTER $FILTER"
 echo "MASK $MASK"
 echo "COLLAPSE $COLLAPSE"
-
-#if [ -z "${a}" ] && [ -z "${f}" ] && [ -z "${m}" ] && [ -z "${c}" ]; then
-#    usage
-#fi
 
 #========== Assembling Pairs ==========
 if [ "${ASSEMBLE}" = true ]; then

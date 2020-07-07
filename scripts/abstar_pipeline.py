@@ -18,6 +18,7 @@
 """
 
 import pandas as pd
+from Bio.Seq import translate
 from utils import *
 from error_correct import error_correct_marginal, error_correct_total, group_data
 from vjl_slc import vjl_slc
@@ -491,6 +492,7 @@ def merge_replicates(lineages: dict, productive: bool = True) -> dict:
     productive : bool, optional
         Bool to specify whether to keep lineages with unproductive progenitors.
         Note: productive lineages can have unproductive progenitors due to uncertainty.
+
     Returns
     -------
     condensed_lineages : dict
@@ -513,6 +515,40 @@ def merge_replicates(lineages: dict, productive: bool = True) -> dict:
                 for l in lineages[v][j]:
                     for cluster_id in lineages[v][j][l]:
                         condensed_lineages[(v,j,l,cluster_id)] = merge_replicates_within_lineage(lineages[v][j][l][cluster_id])
+    return condensed_lineages
+
+def denest_dictionary(lineages: dict, productive: bool = True) -> dict:
+    """Convert lineage dictionary to one that doesn't nest for simpler looping.
+
+    Parameters
+    ----------
+    lineage : dict
+        Nested dictionaries of lineages [V][J][L][cluster_id].
+    productive : bool, optional
+        Bool to specify whether to keep lineages with unproductive progenitors.
+        Note: productive lineages can have unproductive progenitors due to uncertainty.
+
+    Returns
+    -------
+    condensed_lineages : dict
+        Dictionary of lineages by [(V, J, L, cluster_id)].
+    """
+
+    condensed_lineages = {}
+    if productive:
+        for v in lineages:
+            for j in lineages[v]:
+                for l in lineages[v][j]:
+                    for cluster_id in lineages[v][j][l]:
+                        if get_lineage_progenitor_cdr3(lineages[v][j][l][cluster_id]) == '':
+                            continue
+                        condensed_lineages[(v,j,l,cluster_id)] = lineages[v][j][l][cluster_id]
+    else:
+        for v in lineages:
+            for j in lineages[v]:
+                for l in lineages[v][j]:
+                    for cluster_id in lineages[v][j][l]:
+                        condensed_lineages[(v,j,l,cluster_id)] = lineages[v][j][l][cluster_id]
     return condensed_lineages
 
 def get_lineage_progenitor(lineage: list) -> str:
