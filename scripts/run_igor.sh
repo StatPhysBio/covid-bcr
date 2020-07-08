@@ -1,4 +1,27 @@
 #!/bin/bash
+#
+#    Copyright (C) Montague, Zachary
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+#    Script used to run IGoR to obtain the recombination model.
+#    The user should change the variable so that they point to the correct
+#    locations in their own directories.
+#
+#    Required software:
+#    IGoR https://qmarcou.github.io/IGoR/ 
+
 #SBATCH --job-name=igor
 #SBATCH -p spe 
 #SBATCH -A spe
@@ -6,7 +29,7 @@
 #SBATCH --mem=50G
 #SBATCH --ntasks-per-node=10
 #SBATCH --time=6:00:00
-#IGOR13="/gscratch/stf/zachmon/software/igor_1-3-0_exec/igor"
+
 IGOR14="/gscratch/stf/zachmon/software/igor_1-4-0_exec/igor"
 WDPATH=${1}
 FASTA=${2}

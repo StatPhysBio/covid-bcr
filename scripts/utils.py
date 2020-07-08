@@ -322,7 +322,7 @@ def get_patient(header: str) -> str:
         Patient ID.
     """
 
-    return uid.split("|")[0].split("=")[-1]
+    return header.split("|")[0].split("=")[-1]
 
 def get_cprimer(header: str) -> str:
     """Obtains the cprimer from the header.

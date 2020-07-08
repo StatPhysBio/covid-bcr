@@ -18,10 +18,52 @@
 """
 
 import pandas as pd
-from Bio.Seq import translate
 from utils import *
 from error_correct import error_correct_marginal, error_correct_total, group_data
 from vjl_slc import vjl_slc
+
+def translate(sequence):
+    """Takes a nucleotide sequence and translates it into a protein.
+
+    Parameters
+    ----------
+    sequence : str
+        String of nucleotide residues.
+
+    Returns
+    -------
+    protein : str
+        String of amino acids.
+    """
+
+    table = {
+        'ATA':'I', 'ATC':'I', 'ATT':'I', 'ATG':'M',
+        'ACA':'T', 'ACC':'T', 'ACG':'T', 'ACT':'T',
+        'AAC':'N', 'AAT':'N', 'AAA':'K', 'AAG':'K',
+        'AGC':'S', 'AGT':'S', 'AGA':'R', 'AGG':'R',
+        'CTA':'L', 'CTC':'L', 'CTG':'L', 'CTT':'L',
+        'CCA':'P', 'CCC':'P', 'CCG':'P', 'CCT':'P',
+        'CAC':'H', 'CAT':'H', 'CAA':'Q', 'CAG':'Q',
+        'CGA':'R', 'CGC':'R', 'CGG':'R', 'CGT':'R',
+        'GTA':'V', 'GTC':'V', 'GTG':'V', 'GTT':'V',
+        'GCA':'A', 'GCC':'A', 'GCG':'A', 'GCT':'A',
+        'GAC':'D', 'GAT':'D', 'GAA':'E', 'GAG':'E',
+        'GGA':'G', 'GGC':'G', 'GGG':'G', 'GGT':'G',
+        'TCA':'S', 'TCC':'S', 'TCG':'S', 'TCT':'S',
+        'TTC':'F', 'TTT':'F', 'TTA':'L', 'TTG':'L',
+        'TAC':'Y', 'TAT':'Y', 'TAA':'*', 'TAG':'*',
+        'TGC':'C', 'TGT':'C', 'TGA':'*', 'TGG':'W',
+    }
+    protein =""
+    if len(sequence) % 3 == 0:
+        for i in range(0, len(sequence), 3):
+            codon = sequence[i:i + 3]
+            if "N" in codon:
+                protein += 'X'
+            else:
+                protein += table[codon]
+    return protein
+
 
 def load_abstar(abstar_file: str) -> dict:
     """Loads and performs preliminary filtering on abstar output.
@@ -137,8 +179,8 @@ def has_shm_indels(annotation: dict) -> bool:
     return ((annotation['vdj_nt'] != annotation['gapped_vdj_nt'])
        or (annotation['vdj_germ_nt'] != annotation['gapped_vdj_germ_nt']))
 
-def cdr3_position(annotation: dict, nt: bool = True, junc: bool = False) -> tuple:
-    """Determines if reported CDR3 is present in the alignment.
+def cdr3_position(annotation: dict, junc: bool = False) -> tuple:
+    """Determines if reported CDR3 is present in the alignment and returns position if so.
 
     Abstar is not the most robust of softwares. There are sometimes
     differences between what is in the raw input sequence and what
@@ -151,8 +193,6 @@ def cdr3_position(annotation: dict, nt: bool = True, junc: bool = False) -> tupl
     ----------
     annotation : dict
         Dictionary containing annotation output for a sequence.
-    nt : bool, optional
-        Use nucleotide output, otherwise amino acid.
     junc : bool, optional
         Use junction, otherwise use CDR3 without invariant residues.
 
@@ -162,18 +202,14 @@ def cdr3_position(annotation: dict, nt: bool = True, junc: bool = False) -> tupl
         Tuple of start and end positions of CDR3 sequence.
     """
 
-    if nt:
-        residue = 'nt'
-    else:
-        residue = 'aa'
     if junc:
         loc = 'junc_'
     else:
         loc = 'cdr3_'
 
     try:
-        cdr3_start = annotation['vdj_' + residue].index(annotation[loc + residue])
-        cdr3_end = cdr3_start + len(annotation[loc + residue])
+        cdr3_start = annotation['vdj_nt'].index(annotation[loc + 'nt'])
+        cdr3_end = cdr3_start + len(annotation[loc + 'nt'])
         return cdr3_start,cdr3_end
     except:
         return None
@@ -417,18 +453,17 @@ def get_naive_cdr3(annotation: dict,  nt: bool = True, junc: bool = True) -> str
         CDR3 of naive sequence.
     """
 
-    if nt:
-        residue = 'nt'
-    else:
-        residue = 'aa'
     if junc:
         loc = 'junc_'
     else:
         loc = 'cdr3_'
 
-    cdr3_positions = cdr3_position(annotation, nt=nt, junc=junc)
+    cdr3_positions = cdr3_position(annotation, junc=junc)
     if cdr3_positions is not None:
-        return annotation['vdj_germ_'+residue][cdr3_positions[0]:cdr3_positions[1]]
+        if nt == True:
+            return annotation['vdj_germ_nt'][cdr3_positions[0]:cdr3_positions[1]]
+        else:
+            return translate(annotation['vdj_germ_nt'][cdr3_positions[0]:cdr3_positions[1]])
     else:
        return None
 
@@ -583,6 +618,10 @@ def get_lineage_progenitor_cdr3(lineage: list, nt: bool = True, junc: bool = Tru
     ----------
     lineage : list
         List of annotations.
+    nt : bool, optional
+        Use nucleotide output, otherwise amino acid.
+    junc : bool, optional
+        Use junction, otherwise use CDR3 without invariant residues.
 
     Returns
     -------

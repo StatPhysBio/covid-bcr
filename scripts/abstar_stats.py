@@ -22,7 +22,8 @@ import numpy as np
 import operator
 import collections
 import numpy as np
-from abstar_pipeline import merge_replicates, get_lineage_progenitor_cdr3, get_lineage_progenitor
+from abstar_pipeline import (merge_replicates, get_lineage_progenitor_cdr3,
+                             get_lineage_progenitor)
 
 def initialize_stats_dict() -> dict:
     """Creates dictionary that will contain sequence statistics for lineage progentiors and nonsingletons
