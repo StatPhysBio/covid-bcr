@@ -66,9 +66,9 @@ CONST_SAMPLE_DICT = {'1': {'IgG-nCoV-RBD': -999.0, 'IgM-nCoV-RBD': -999.0, 'samp
                      '44': {'IgG-nCoV-RBD': 0.1635, 'IgM-nCoV-RBD': 0.4795, 'sample day': 10, 'round': 3, 'severity': 'Moderate', 'patient': '11'},
                      '45': {'IgG-nCoV-RBD': 0.518, 'IgM-nCoV-RBD': 1.5075, 'sample day': 15, 'round': 3, 'severity': 'Moderate', 'patient': '11'}}
 
-def annotate_fasta(fasta: str, patient: str = '',
-                   timepoint: str = '', severity: str = '',
-                   replicate: str = '', oneline_collapsed: bool = False,
+def annotate_fasta(fasta: str, patient: str = '', timepoint: str = '',
+                   severity: str = '', replicate: str = '',
+                   oneline_collapsed: bool = False,
                    singletons: bool = True) -> (list, list):
     """Annotates a online deduplicated fasta file from the pRESTO output with patient, replicate, and time information.
 
@@ -173,7 +173,7 @@ def map_sample_to_patient(sample_files: list) -> dict:
         files_by_patient[key] = sort_dict(files_by_patient[key])
     return files_by_patient
 
-def assemble_combined_fasta(savename, sample_files):
+def assemble_combined_fasta(savename: str, sample_files: list) -> None:
     """Annotates given files and saves them all to a single fasta file.
 
     Parameters
@@ -209,6 +209,7 @@ def main():
 
     dirs = args.dirs
     savedir = args.savedir
+
     if dirs is None:
         print("No directory specified, so no files will be located.")
         return

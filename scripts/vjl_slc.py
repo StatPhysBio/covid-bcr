@@ -17,10 +17,10 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+from jellyfish import hamming_distance
+import numpy as np
 from scipy.cluster.hierarchy import linkage,fcluster,dendrogram
 from scipy.spatial.distance import squareform
-import numpy as np
-from jellyfish import hamming_distance
 
 def bin_vjl(annotations: list, partis: bool = False, abstar: bool = True) -> dict:
     """Bins annotations by V gene, J gene, and CDR3 length.
@@ -248,7 +248,8 @@ def slc_all_bins(vjl_dict: dict, partis: bool = False, abstar: bool = True,
             for l in vjl_dict[v][j]:
                 if l not in lineages[v][j]:
                     lineages[v][j][l] = {}
-                lineages[v][j][l] = slc_vjl_bin(vjl_dict[v][j][l], partis=partis, abstar=abstar, threshold=threshold)
+                lineages[v][j][l] = slc_vjl_bin(vjl_dict[v][j][l], partis=partis,
+                                                abstar=abstar, threshold=threshold)
     return lineages
 
 def vjl_slc(annotations, partis: bool = False, abstar: bool = True,

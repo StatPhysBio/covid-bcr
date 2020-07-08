@@ -18,11 +18,12 @@
 """
 
 import pandas as pd
-from utils import *
+
 from error_correct import error_correct_marginal, error_correct_total, group_data
+from utils import *
 from vjl_slc import vjl_slc
 
-def translate(sequence):
+def translate(sequence:str) -> str:
     """Takes a nucleotide sequence and translates it into a protein.
 
     Parameters
@@ -323,7 +324,7 @@ def filter_after_error_correction(annotations: dict, annkey: str) -> None:
     ----------
     annotations : dict
         Dictionary containing annotation output for a sequence.
-    keys : str
+    annkey : str
         A key in the annotations dictionary: ['productive', 'unproductive',
         'stop_in_cdr3', 'other'].
 
@@ -552,7 +553,7 @@ def merge_replicates(lineages: dict, productive: bool = True) -> dict:
                         condensed_lineages[(v,j,l,cluster_id)] = merge_replicates_within_lineage(lineages[v][j][l][cluster_id])
     return condensed_lineages
 
-def denest_dictionary(lineages: dict, productive: bool = True) -> dict:
+def denest_lineages(lineages: dict, productive: bool = True) -> dict:
     """Convert lineage dictionary to one that doesn't nest for simpler looping.
 
     Parameters
@@ -704,6 +705,7 @@ def create_sonia_input(infile: str) -> pd.DataFrame:
 
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(
         description='Pipeline to process abstar output:'
                     'error correction on sequences and filter annotations;'
@@ -723,6 +725,7 @@ def main():
                         help='path to lineages file (.json), '
                         'path for SONIA input (.csv)')
     args = parser.parse_args()
+
     if args.annotations_input is not None:
         annotations = annotations_pipeline(args.annotations_input[0])
         json_save(args.annotations_input[1], annotations)

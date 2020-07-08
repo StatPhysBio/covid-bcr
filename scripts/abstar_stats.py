@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Script to get sequence statistics of filtered lineages and nonsingletons.
+"""Script to get sequence statistics of nonsingletons and filtered lineage progenitors.
     Copyright (C) 2020 Montague, Zachary
 
     This program is free software: you can redistribute it and/or modify
@@ -17,13 +17,14 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-from utils import *
-import numpy as np
-import operator
 import collections
+import operator
+
 import numpy as np
+
 from abstar_pipeline import (merge_replicates, get_lineage_progenitor_cdr3,
                              get_lineage_progenitor)
+from utils import *
 
 def initialize_stats_dict() -> dict:
     """Creates dictionary that will contain sequence statistics for lineage progentiors and nonsingletons
@@ -39,22 +40,14 @@ def initialize_stats_dict() -> dict:
         the annotation for a lineage progenitor and all nonsingletons in a lineage.
      """
 
-    stats_dict = {'nonsingletons': {'v gene': [],
-                                    'j gene': [],
-                                    'd gene': [],
+    stats_dict = {'nonsingletons': {'v gene': [], 'j gene': [], 'd gene': [],
                                     'cdr3 length': [],
-                                    'vd ins': [],
-                                    'dj ins': [],
-                                    'vd del': [],
-                                    'dj del': []},
-                  'progenitors': {'v gene': [],
-                                  'j gene': [],
-                                  'd gene': [],
+                                    'vd ins': [], 'dj ins': [],
+                                    'vd del': [], 'dj del': []},
+                  'progenitors': {'v gene': [], 'j gene': [], 'd gene': [],
                                   'cdr3 length': [],
-                                  'vd ins': [],
-                                  'dj ins': [],
-                                  'vd del': [],
-                                  'dj del': []}}
+                                  'vd ins': [], 'dj ins': [],
+                                  'vd del': [], 'dj del': []}}
     return stats_dict
 
 def fill_dict(in_dict: dict, annotation: dict) -> None:
@@ -91,7 +84,7 @@ def fill_dict(in_dict: dict, annotation: dict) -> None:
     in_dict['dj del'].append(annotation['exo_trimming']['div_3']
                              + annotation['exo_trimming']['join_5'])
 
-def get_stats(stats_dict: dict, lineage: list):
+def get_stats(stats_dict: dict, lineage: list) -> None:
     """Records statistics of annotations in a lineage.
 
     Parameters
@@ -109,21 +102,24 @@ def get_stats(stats_dict: dict, lineage: list):
     progenitor_cdr3 = get_lineage_progenitor_cdr3(lineage)
     if progenitor_cdr3 == '' or len(lineage) < 3:
         return
+
     progenitor_sequence = get_lineage_progenitor(lineage)
     progenitor_stats_recorded = False
 
     for j, annotation in enumerate(lineage):
         #  Get statistics for the lineage progenitor. The lineage progenitor annotation
         #  might come from a singleton or nonsingleton.
-        if progenitor_stats_recorded == False and annotation['vdj_germ_nt'] == progenitor_sequence:
+        if (progenitor_stats_recorded == False
+            and annotation['vdj_germ_nt'] == progenitor_sequence):
             fill_dict(stats_dict['progenitors'], annotation)
             progenitor_stats_recorded = True
+
         #  Get statistics for nonsingletons only.
         if get_abundance(annotation['seq_id']) == 1:
             continue
         fill_dict(stats_dict['nonsingletons'], annotation)
 
-def create_stats_file(infile: str) -> None:
+def create_stats_file(infile: str, outdir: str) -> None:
     """Obtains lineages from the file and obtains the statistics.
 
     Parameters
@@ -137,8 +133,7 @@ def create_stats_file(infile: str) -> None:
 
     file_name = infile.split("/")[-1]
     patient = file_name.split("_")[0]
-    save_dir = '/gscratch/stf/zachmon/covid/stats/'
-    save_name = save_dir + patient + "_final_stats.json"
+    save_name = outdir + patient + "_sequence_statistics.json"
     lineages = merge_replicates(json_open(in_file)['productive'], productive=True)
     stats_dict = initialize_stats_dict()
 
@@ -154,8 +149,11 @@ def main():
         description='Gets relevant stats of productive lineage progenitors '
                     'and nonsingletons in productive lineages')
     parser.add_argument('--infile', type=str, help='path to abstar lineage json file')
+    parser.add_argument('--outdir', type=str, help='path to directory for stat '
+                        'json files to be saved')
     args = parser.parse_args()
-    create_stats_file(args.infile)
+
+    create_stats_file(args.infile, args.outdir)
 
 if __name__ == '__main__':
     main()

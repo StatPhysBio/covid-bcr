@@ -19,6 +19,7 @@
 
 from collections import OrderedDict
 from operator import itemgetter
+
 from Bio.SeqIO import parse
 
 def sort_dict(unsorted_dict: dict) -> OrderedDict:
@@ -266,17 +267,29 @@ def get_genomic_ref(fasta: str, outfile: str, gene_dict:dict) -> None:
                 f.write(seqs[idx] + "\n")
 
 def main():
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description='creates genomic references and CDR3 anchors '
+        'from abstar references. Files must be named specifically:'
+        'abstar_gapped_V.fasta, abstar_gapped_J.fasta,'
+        'abstar_genomic_Vs.fasta, abstar_genomic_Ds.fasta, abstar_genomic_Js.fasta')
+    parser.add_argument('--indir', type=str, help='path to reference files.'
+                        ' This will also be where the output is saved.')
+    args = parser.parse_args()
+
     genes = ['V', 'J']
     softwares = ['igor', 'sonia']
     for gene in genes:
-        #  CHANGE ME HERE.
-        gapped_fasta_file = '/gscratch/stf/zachmon/covid/covid-bcr/ref_genome/abstar_gapped_'+gene+'.fasta'
+        #  Create CDR3 anchors.
+        gapped_fasta_file = args.indir + 'abstar_gapped_' + gene + '.fasta'
         gene_dict = get_gene_dict(gapped_fasta_file, gene=gene)
-        for key in softwares:
-            output_fasta_file_anchor = key + '_' + gene + '_gene_CDR3_anchors.csv'
-            write_to_csv(output_fasta_file_anchor, gene_dict, program=key)
-        #  CHANGE ME HERE.
-        genomic_file = '/gscratch/stf/zachmon/covid/covid-bcr/ref_genome/abstar_genomic_' + gene + 's.fasta'
+        for software in softwares:
+            output_fasta_file_anchor = (args.indir + software + '_'
+                                        + gene + '_gene_CDR3_anchors.csv')
+            write_to_csv(output_fasta_file_anchor, gene_dict, program=software)
+        #  Create genomic references.
+        genomic_file = args.indir + 'abstar_genomic_' + gene + 's.fasta'
         get_genomic_ref(genomic_file,
                         genomic_file.replace(".fasta", "_for_igor.fasta"),
                         gene_dict)

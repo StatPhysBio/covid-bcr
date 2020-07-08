@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Script to get count information and run fisher exact test.
+"""Script to get count information and run Fisher exact test.
     Copyright (C) 2020 Montague, Zachary
 
     This program is free software: you can redistribute it and/or modify
@@ -17,13 +17,13 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-import csv
-import scipy.stats as stats
-import pandas as pd
 import numpy as np
-from utils import *
-from abstar_pipeline import (denest_dictionary, merge_replicates_within_lineage,
+import pandas as pd
+import scipy.stats as stats
+
+from abstar_pipeline import (denest_lineages, merge_replicates_within_lineage,
                              get_lineage_progenitor_cdr3)
+from utils import *
 
 def get_counts_by_time(headers: list, headers_unique_counts: list, times: list) -> dict:
     """Obtains unique, abundance, and singleton counts per time in a lineage.
@@ -167,8 +167,9 @@ def get_counts(in_lineages: dict, productive: bool = True,
     else:
         count_func = get_counts_by_time
 
-    lineages = denest_dictionary(in_lineages, productive=productive)
+    lineages = denest_lineages(in_lineages, productive=productive)
     patient_key = get_patient(lineages[list(lineages.keys())[0]][0]['seq_id'])
+
     #  Looks up the times from the CONST_DATA_DICT in utils.
     try:
         times = CONST_DATA_DICT[str(patient_key)]['sample day']
@@ -179,6 +180,7 @@ def get_counts(in_lineages: dict, productive: bool = True,
     for key in lineages:
         lineage = lineages[key]
         lineage_unique_counts = merge_replicates_within_lineage(lineage)
+
         #  Annotations come from abstar.
         if abstar:
             headers = [ann['seq_id'] for ann in lineage]
@@ -186,6 +188,8 @@ def get_counts(in_lineages: dict, productive: bool = True,
         #  Annotations come from partis.
         else:
             headers = [ann['unique_ids'][0] for ann in lineage]
+            headers_unique_counts = [ann['unique_ids'][0] for ann in lineage_unique_counts]
+
         count_dict,lineage_primer = count_func(headers, headers_unique_counts, times)
         if lineage_primer not in primer_split_counts['unique']:
             primer_split_counts['unique'][lineage_primer] = {}
@@ -264,18 +268,22 @@ def create_csv_for_analysis(lineages: dict, productive: bool = True, replicate: 
                 'common_cdr3':[], 'cluster_id':[], 'time':[], 'replicate':[],
                 'abundance':[], 'unique': [], 'unique_merged': [], 'singleton': [],
                 'productive':[],'primer':[]}
+
     df_counts = get_counts(lineages, productive=productive,
                            replicate=replicate, abstar=True)
     ti_for_lins = get_columns_with_ints(df_counts['abundance'])
     lins = df_counts['abundance'][['v_gene','j_gene','cdr3_length','cluster_id','primer']].values.tolist()
     patient = get_patient(lineages[lins[0][0]][lins[0][1]][lins[0][2]][lins[0][3]][0]['seq_id'])
+
     common_cdr3 = {}
     for lin in lins:
         lineage = lineages[lin[0]][lin[1]][lin[2]][lin[3]]
         common_cdr3[tuple(lin)] = get_lineage_progenitor_cdr3(lineage, nt=False)
     print('# lins', len(lins))
     print('Lins with unproductive CDR3s',sum([1 for key in common_cdr3 if common_cdr3[key] == '']))
+
     for i, lin in enumerate(lins):
+        #  Don't save any productive lineages with unproductive progenitors.
         if common_cdr3[tuple(lin)] == '' and productive==True:
             continue
         for ti in ti_for_lins:
@@ -316,19 +324,23 @@ def make_csv_for_analysis(savename: str, csv_dict: dict, replicate: bool = True)
                 'v_gene','j_gene','cdr3_length','cluster_id',
                 'common_cdr3','time','replicate',
                 'abundance','unique','unique_merged','singleton']
+
     if not replicate:
         col_list.remove('replicate')
+
     col_titles = ','.join(col_list)
+
     with open(savename,'w') as f:
-        f.write(col_titles+'\n')
+        f.write(col_titles + '\n')
         for d_index,entry in enumerate(csv_dict['patient']):
             for index,key in enumerate(col_list):
                 f.write(str(csv_dict[key][d_index]))
-                if index != len(col_list)-1:
+                if index != len(col_list) - 1:
                     f.write(',')
                 else:
                     f.write('\n')
-    print('Made',savename)
+
+    print('Made', savename)
 
 #  TODO: Finish Fisher exact test implementation here.
 #        R implementation in notebook.
@@ -431,9 +443,12 @@ def main():
         print('Processing replicates jointly.')
 
     lineages = json_open(args.lineages)
+    #  Get counts for productive lineages.
     csv_dict = create_csv_for_analysis(lineages['productive'], productive=args.productive,
                                        replicate=args.replicate)
     make_csv_for_analysis(args.outfile, csv_dict, replicate=args.replicate)
+
+    #  Get counts for unproductive lineages.
     csv_dict = create_csv_for_analysis(lineages['unproductive'], productive=False,
                                        replicate=args.replicate)
     make_csv_for_analysis(args.outfile.replace('.csv', '_unproductive.csv'),

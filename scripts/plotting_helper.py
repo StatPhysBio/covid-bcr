@@ -17,18 +17,18 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-import string
 from math import log10, floor
+import string
 
-import operator as op
-import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
                                AutoMinorLocator)
-import seaborn as sns
+import numpy as np
 from scipy.stats import f_oneway, ks_2samp
+import seaborn as sns
+
 from utils import *
 
 #  Set fonttypes so that Adobe Illustrator can be used to edit the final product.
