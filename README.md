@@ -98,19 +98,21 @@ Use `scripts/expansion_data_analysis.py` to create the .csv file used as input f
 python expansion_data_analysis.py --lineages PATH/TO/LINEAGE_FILE.json --outfile PATH/TO/SAVE/LINEAGE_COUNTS.csv
 ```
 
-### Obtain CDR3 anchors and genomic references
+### Obtain HCDR3 anchors and genomic references
 
-All genomic references and CDR3 anchors for IGoR and SONIA are in `igor_input/`. If you would like to prepare your own CDR3 anchors and genomic references, use `scripts/cdr3_anchors_and_references.py`.
+All genomic references and HCDR3 anchors for IGoR and SONIA are in `igor_input/` and `sonia_input/`. If you would like to prepare your own HCDR3 anchors and genomic references, use `scripts/cdr3_anchors_and_references.py`.
 
 ```bash
-python cdr3_anchors_and_references.py --indir PATH/TO/ANCHORS_AND_REFERENCES_DIR
+python cdr3_anchors_and_references.py --indir igor_input
 ```
+
+The output will also be in `igor_input`.
 
 ## Analysis
 
 ### IGoR model
 
-Genomic references and CDR3 anchors for [IGoR](https://github.com/qmarcou/IGoR) are available in `igor_input/`. Use `scripts/run_igor.sh` to make the IGoR model.
+Genomic references and HCDR3 anchors for [IGoR](https://github.com/qmarcou/IGoR) are available in `igor_input/`. Use `scripts/run_igor.sh` to make the IGoR model.
 
 ```bash
 bash run_igor.sh PATH/TO/WORKING_DIRECTORY PATH/TO/IGOR_INPUT.fasta BATCHNAME
@@ -118,8 +120,8 @@ bash run_igor.sh PATH/TO/WORKING_DIRECTORY PATH/TO/IGOR_INPUT.fasta BATCHNAME
 
 ### SONIA models
 
-IGoR model output and CDR3 anchors for [SONIA](https://github.com/statbiophys/SONIA) are available in `sonia_input/`.
-To assemble all the individual patient data into cohorts quickly, `cat` them together and then delete the unnecessary header lines that are not the first line.
+IGoR model output and HCDR3 anchors for [SONIA](https://github.com/statbiophys/SONIA) are available in `sonia_input/`.
+To assemble all the individual patient data into cohorts quickly, `cat` them together accordingly (e.g. `cat 1_sonia_input.csv 2_sonia_input.csv 3_sonia_input.csv > healthy_sonia_input.csv`) and then delete the unnecessary header lines that are not the first line inside the resultant csv.
 
 To create a SONIA model, execute
 
@@ -154,7 +156,6 @@ sonia-evaluate --set_custom_model_VDJ PATH/TO/SONIA_MODEL --sonia_model leftrigh
                --infile PATH/TO/INPUT.csv --delimiter_out , --outfile PATH/TO/SAVE/GEN_EVALUATIONS.csv
 ```
 
-
 ### Differential sequence features
 
 Use `scripts/abstar_stats.py` to obtain statistics of gene usage, HCDR3 length, and insertion and deletion profiles of nonsingletons and progenitors in productive lineages with at least three unique sequences across all timepoints.
@@ -163,7 +164,7 @@ Use `scripts/abstar_stats.py` to obtain statistics of gene usage, HCDR3 length, 
 python abstar_stats.py --infile PATH/TO/LINEAGES.json --outfile PATH/TO/SAVE/STATISTICS.json
 ```
 
-For plotting these statistics and performing ANOVA (with boxplot visualizations), see `notebooks/sequence_features_plotting.ipynb`.
+For plotting these statistics and performing ANOVA (with boxplot visualizations), see `notebooks/sequence_features_plotting.ipynb`. Methods to aid in plotting and performing statistical tests are in `scripts/plotting_helper.py`.
 
 ### Expansion analysis and overlap with known Abs
 
@@ -171,7 +172,7 @@ See `notebooks/expansion_and_overlap_analysis.ipynb`.
 
 ### Sharing analysis
 
-<img src="https://render.githubusercontent.com/render/math?math=\large P_{post}"> obtained from evaluating data sequences using inferred SONIA models.
+<img src="https://render.githubusercontent.com/render/math?math=\large P_{post}"> is obtained from evaluating data sequences using inferred SONIA models.
 See `sequence_features_plotting.ipynb`.
 See Methods in [Montague et al., Dynamics of B-cell repertoires and emergence of cross-reactive responses in COVID-19 patients with different disease severity]() for calculating the null hypothesis for <img src="https://render.githubusercontent.com/render/math?math=\large P_{share}">.
 
