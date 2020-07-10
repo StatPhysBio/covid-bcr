@@ -1,5 +1,5 @@
 # About
-This repository is used to conduct the analysis for "The dynamics of B-cell repertoires in response to SARS-CoV-2 infection in COVID-19 patients with different disease severity."
+This repository is used to conduct the analysis for "Dynamics of B-cell repertoires and emergence of cross-reactive responses in COVID-19 patients with different disease severity"
 It investigates receptor compostions depending on disease severity, expansion of BCR clonal lineages over time, sharing of BCRs among individuals, and the emergence of cross-reactivity from a SARS-CoV-2 response to a SARS response.
 
 ## Dependencies
