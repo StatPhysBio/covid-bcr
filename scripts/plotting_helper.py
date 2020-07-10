@@ -90,12 +90,12 @@ def bin_and_average_values(counters: list, observable: str, indict: bool = False
     ----------
     counters : list
         List of dictionaries containing the count information for each individual
-        in a cohort. The keys are effectively the bins whereas the values are
-        the counts in each fine-grained bin.
+        in a cohort. The keys are effectively the fine-grained bins whereas the values
+        are the counts in each fine-grained bin.
     observable : str
-        Specifies which quantity to bin and average.
+        The quantity which is to be binned and averaged.
     indict : bool, optional
-        Specifies if the input is a dictionary (for genes) or list.
+        Specifies if the input is a dictionary (for genes) or list (all other observables).
     geo :  bool, optional
         If True, will perform geometric averaging, otherwise arithmetic averaging.
 
@@ -161,8 +161,9 @@ def cohort_plot(cohort_averages: dict, observable: str, in_ax: matplotlib.axes =
     cohort_averages : dict
         Dictionary of averages and variations within in a cohort for all severities.
     observable : str
-        Name of observable to plot.
+        The quantity which is going to be plotted.
     in_ax : matplotlib.axes, optional
+        The axes on which values are going to be plotted.
         Used to modify an already existing axes when creating a figure with a grid.
     geo : bool, optional
         Specifies whether the variation should be +/- or *//.
@@ -242,9 +243,9 @@ def make_stats_plot(cohort_averages: dict, observable: str, in_ax: matplotlib.ax
     cohort_averages : dict
         Dictionary of averages and variations within a cohort for all severities.
     observable : str
-        What statistic is going to be plotted.
+        The quantity which is going to be plotted.
     in_ax : matplotlib.axes
-        Where the values are going to be plotted.
+        The axes on which values are going to be plotted.
     geo: bool, optional
         Specifies geometric or arithmetic averaging.
     labelsize : int, optional
@@ -286,7 +287,7 @@ def cohort_bar(cohort_averages: dict, cohort_data: dict, observable: str,
     cohort_dict : dict
         Dictionary of all statistics of all individuals in a cohort for all severities.
     observable : str
-        What statistics is going to be plotted.
+        The quantity which is going to be plotted.
     yaxis_upper : int, optional
         Specifies the upper limit of the y-axis on the plot.
     ax : matplotlib.axes, optional
@@ -378,7 +379,7 @@ def cohort_bar(cohort_averages: dict, cohort_data: dict, observable: str,
     format_axes(ax, labelsize=labelsize, ticksize=ticksize, legendsize=legendsize)
 
 def get_stats(in_files, statstype='progenitors', geo=False, pseudocount=0) -> (dict, dict):
-    """Obtains the statistics from each patient and puts them into their respective cohort.
+    """Obtains the statistics from each patient and puts them into their respective cohort and also obtains averaged cohort statistics.
 
     Parameters
     ----------
@@ -463,7 +464,7 @@ def get_stats(in_files, statstype='progenitors', geo=False, pseudocount=0) -> (d
                                                                            observable, indict=True, geo=False)
     return cohort_data, cohort_averages
 
-def perform_anova(cohort_data: dict, observable: str):
+def perform_anova(cohort_data: dict, observable: str) -> None:
     """Creates box plots and performs ANOVA on the means of each individual's statistic.
 
     Parameters
@@ -471,7 +472,7 @@ def perform_anova(cohort_data: dict, observable: str):
     cohort_data : dict
         Dictionary of all data for all individuals in a cohort for all severities.
     observable : str
-        What is quantity is going to be plotted and tested.
+        The quantity which is going to be plotted and tested.
 
     Returns
     -------
@@ -519,7 +520,21 @@ def perform_anova(cohort_data: dict, observable: str):
     format_axes(ax, box=True)
     plt.show()
 
-def perform_ks2samp(cohort_data, observable):
+def perform_ks2samp(cohort_data: dict, observable: str) -> None:
+    """Performs two-sample K–S test on pooled cohort data.
+    
+    Parameters
+    ----------
+    cohort_data : dict
+        Dictionary of all data for all individuals in a cohort for all severities.
+    observable : str
+        The quantity which is going to be tested.
+
+    Returns
+    -------
+    None
+    """
+    
     for severity in cohort_data:
         if severity == 'Healthy':
             continue
