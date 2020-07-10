@@ -119,13 +119,16 @@ def get_stats(stats_dict: dict, lineage: list) -> None:
             continue
         fill_dict(stats_dict['nonsingletons'], annotation)
 
-def create_stats_file(infile: str, outdir: str) -> None:
+def create_stats_file(infile: str, outfile: str) -> None:
     """Obtains lineages from the file and obtains the statistics.
 
     Parameters
     ----------
     infile : str
         String to path of lineage json file.
+    outfile : str
+        String to path of statistics json file to save.
+
     Returns
     -------
     None
@@ -133,14 +136,13 @@ def create_stats_file(infile: str, outdir: str) -> None:
 
     file_name = infile.split("/")[-1]
     patient = file_name.split("_")[0]
-    save_name = outdir + patient + "_sequence_statistics.json"
     lineages = merge_replicates(json_open(in_file)['productive'], productive=True)
     stats_dict = initialize_stats_dict()
 
     #  Loop over all lineages.
     for key in lineages:
        get_stats(stats_dict, lineages[key])
-    json_save(save_name, stats_dict)
+    json_save(outfile, stats_dict)
 
 def main():
     import argparse
@@ -149,8 +151,8 @@ def main():
         description='Gets relevant stats of productive lineage progenitors '
                     'and nonsingletons in productive lineages')
     parser.add_argument('--infile', type=str, help='path to abstar lineage json file')
-    parser.add_argument('--outdir', type=str, help='path to directory for stat '
-                        'json files to be saved')
+    parser.add_argument('--outfile', type=str, help='path for statistics json '
+                        'files to be saved')
     args = parser.parse_args()
 
     create_stats_file(args.infile, args.outdir)

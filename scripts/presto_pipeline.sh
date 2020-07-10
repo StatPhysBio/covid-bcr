@@ -22,7 +22,7 @@
 #    which point to the paired-reads for a replicate. Creates directories
 #    for assembling, filtering, masking, and collapsing and saves
 #    corresponding files to those directories. fastx is used to convert
-#    the deduplicated fastas into one-line sequence fastas. fastx was added 
+#    the deduplicated FASTAs into one-line sequence FASTAs. fastx was added 
 #    to the PATH variable when this was run.
 #
 #    Required software:
@@ -55,7 +55,6 @@ SCRATCHDIR=/gscratch/stf/zachmon/
 CONDADIR=${SCRATCHDIR}miniconda3/
 CONDAENVDIR=${CONDADIR}envs/covid-bcr
 RUNCONDA=${CONDADIR}etc/profile.d/conda.sh
-SOFTWAREDIR=${SCRATCHDIR}software/presto-0.5.13/bin/
 COVIDDIR=${SCRATCHDIR}covid/round3data/
 ALIGNDIR=${COVIDDIR}aligned/
 FILTERDIR=${COVIDDIR}filtered/
@@ -97,12 +96,12 @@ if [ "${ASSEMBLE}" = true ]; then
     fi
     echo "ASSEMBLING!"
     #  Assemble pairs.
-    ${SOFTWAREDIR}AssemblePairs.py align -1 ${INPUTDIR}IgG${SAMPLENUM}_1.fastq \
-                                         -2 ${INPUTDIR}IgG${SAMPLENUM}_2.fastq \
-                                         --coord illumina \
-                                         --rc tail \
-                                         --outname ${ALIGNDIR}${FILENAME} \
-                                         --log ${ALIGNDIR}assemble_S${SAMPLENUM}.log
+    AssemblePairs.py align -1 ${INPUTDIR}IgG${SAMPLENUM}_1.fastq \
+                           -2 ${INPUTDIR}IgG${SAMPLENUM}_2.fastq \
+                           --coord illumina \
+                           --rc tail \
+                           --outname ${ALIGNDIR}${FILENAME} \
+                           --log ${ALIGNDIR}assemble_S${SAMPLENUM}.log
 fi
 #========== Filter Sequences ==========
 if [ "$FILTER" = true ]; then
@@ -111,11 +110,11 @@ if [ "$FILTER" = true ]; then
     fi
     echo "FILTERING!"
     #  Filter sequences using a QScore of 30.
-    ${SOFTWAREDIR}FilterSeq.py quality -s ${ALIGNDIR}${FILENAME}_assemble-pass.fastq \
-                                       --fasta \
-                                       -q 30 \
-                                       --outname ${FILTERDIR}30_${FILENAME} \
-                                       --log ${FILTERDIR}filter_30_S${SAMPLENUM}.log
+    FilterSeq.py quality -s ${ALIGNDIR}${FILENAME}_assemble-pass.fastq \
+                         --fasta \
+                         -q 30 \
+                         --outname ${FILTERDIR}30_${FILENAME} \
+                         --log ${FILTERDIR}filter_30_S${SAMPLENUM}.log
 fi
 #========== Trim/Cut Primers  ==========
 if [ "$MASK" = true ]; then
@@ -124,18 +123,18 @@ if [ "$MASK" = true ]; then
     fi
     echo "MASKING!"
     #  Mask V primers.
-    ${SOFTWAREDIR}MaskPrimers.py score -s ${FILTERDIR}30_${FILENAME}_quality-pass.fasta \
-                                       -p ${PRIMERDIR}vprimers.fa \
-                                       --mode mask --pf VPRIMER \
-                                       --outname ${TRIMDIR}${FILENAME}-FWD \
-                                       --log ${TRIMDIR}${SAMPLENUM}PV.log
+    MaskPrimers.py score -s ${FILTERDIR}30_${FILENAME}_quality-pass.fasta \
+                         -p ${PRIMERDIR}vprimers.fa \
+                         --mode mask --pf VPRIMER \
+                         --outname ${TRIMDIR}${FILENAME}-FWD \
+                         --log ${TRIMDIR}${SAMPLENUM}PV.log
 
     #  Cut C primer.
-    ${SOFTWAREDIR}MaskPrimers.py score -s ${TRIMDIR}${FILENAME}-FWD_primers-pass.fasta \
-                                       -p ${PRIMERDIR}cprimers.fa \
-                                       --mode cut --revpr --pf CPRIMER \
-                                       --outname ${FILENAME}-REV \
-                                       --log ${TRIMDIR}${SAMPLENUM}PC.log
+    MaskPrimers.py score -s ${TRIMDIR}${FILENAME}-FWD_primers-pass.fasta \
+                         -p ${PRIMERDIR}cprimers.fa \
+                         --mode cut --revpr --pf CPRIMER \
+                         --outname ${FILENAME}-REV \
+                         --log ${TRIMDIR}${SAMPLENUM}PC.log
 fi
 #========== Deduplicate Sequences ==========
 if [ "$COLLAPSE" = true ]; then
@@ -147,11 +146,11 @@ if [ "$COLLAPSE" = true ]; then
     fi
     echo "DEDUPLICATING!"
     #  Deduplicate data.
-    ${SOFTWAREDIR}CollapseSeq.py -s ${TRIMDIR}${FILENAME}-REV_primers-pass.fasta \
-                                 -n 20 \
-                                 --uf CPRIMER --cf VPRIMER --act set --inner \
-                                 --outname ${DEDUPDIR}unique_${FILENAME}
+    CollapseSeq.py -s ${TRIMDIR}${FILENAME}-REV_primers-pass.fasta \
+                   -n 20 \
+                   --uf CPRIMER --cf VPRIMER --act set --inner \
+                   --outname ${DEDUPDIR}unique_${FILENAME}
    
-    #  Convert sequence in fasta file to one line.
+    #  Convert sequence in FASTA file to one line.
     fasta_formatter -i ${DEDUPDIR}unique_${FILENAME}_collapse-unique.fasta -o ${DEDUPONELINE}${FILENAME}_collapse-unique.fasta
 fi

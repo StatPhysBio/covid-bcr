@@ -101,19 +101,19 @@ def csv_to_dict(in_csv_file: str) -> dict:
     return csv_dict
 
 def fasta_read(fasta: str) -> (list, list):
-    """Reads header and sequence information from a fasta file.
+    """Reads header and sequence information from a FASTA file.
 
     Parameters
     ----------
     fasta : str
-        Path to fasta.
+        Path to FASTA.
 
     Returns
     -------
     sequences : list
-        List of sequences in fasta file.
+        List of sequences in FASTA file.
     headers : list
-        List of headers in fasta file.
+        List of headers in FASTA file.
     """
 
     sequences = []
@@ -230,16 +230,16 @@ def create_dir(path: str) -> None:
         print ("Successfully created the directory %s " % path)
 
 def create_new_fasta(save_name: str, headers: list, sequences: list) -> None:
-    """Creates a new fasta file of the headers and sequences provided.
+    """Creates a new FASTA file of the headers and sequences provided.
 
     Parameters
     ----------
     save_name : str
-        Path of fasta file to be created.
+        Path of FASTA file to be created.
     headers : list
         List of headers of sequences.
     sequences : list
-        List of sequences to be saved in fasta file.
+        List of sequences to be saved in FASTA file.
 
     Returns
     -------

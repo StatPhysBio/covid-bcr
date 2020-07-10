@@ -38,12 +38,12 @@ def sort_dict(unsorted_dict: dict) -> OrderedDict:
     return OrderedDict(sorted(unsorted_dict.items(), key=itemgetter(0)))
 
 def get_v_gaps(header: str) -> int:
-    """Returns number of gaps in header of IMGT gapped V gene fasta.
+    """Returns number of gaps in header of IMGT gapped V gene FASTA.
 
     Parameters
     ----------
     header : str
-        String of information for a single V gene from IMGT gapped V gene fasta.
+        String of information for a single V gene from IMGT gapped V gene FASTA.
 
     Returns
     -------
@@ -60,7 +60,7 @@ def get_v_anchor(gaps: int) -> str:
     Parameters
     ----------
     gaps : int
-        Number of gaps from a header in IMGT gapped V gene fasta.
+        Number of gaps from a header in IMGT gapped V gene FASTA.
 
     Returns
     -------
@@ -71,12 +71,12 @@ def get_v_anchor(gaps: int) -> str:
     return str(3*(104-1) - gaps)
 
 def get_j_gaps(header: str) -> int:
-    """Returns number of gaps in header of IMGT gapped J gene fasta.
+    """Returns number of gaps in header of IMGT gapped J gene FASTA.
 
     Parameters
     ----------
     header : str
-        String of information for a single V gene from IMGT gapped J gene fasta.
+        String of information for a single V gene from IMGT gapped J gene FASTA.
 
     Returns
     -------
@@ -94,7 +94,7 @@ def get_j_anchor(gaps: int) -> str:
     Parameters
     ----------
     gaps : int
-        Number of gaps from a header in IMGT gapped V gene fasta.
+        Number of gaps from a header in IMGT gapped V gene FASTA.
 
     Returns
     -------
@@ -110,7 +110,7 @@ def get_function(header: str) -> str:
     Parameters
     ----------
     header : str
-        String of information for a single V gene from IMGT gapped gene fasta.
+        String of information for a single V gene from IMGT gapped gene FASTA.
 
     Returns
     -------
@@ -152,12 +152,12 @@ def trim_dict(gene_dict: dict) -> dict:
     return out_dict
 
 def get_gene_dict(gapped_fasta: str, gene: str = 'V') -> dict:
-    """Creates a dictionary of information taken from a gapped fasta file.
+    """Creates a dictionary of information taken from a gapped FASTA file.
 
     Parameters
     ----------
     gapped_fasta : str
-        Path to fasta file with gaps.
+        Path to FASTA file with gaps.
     gene : str, optional
         Specifies which gene to use. Options = ['V', 'J']. Default = 'V'.
 
@@ -232,18 +232,18 @@ def write_to_csv(outfile: str, gene_dict: dict, program: str = 'igor') -> None:
         print("Option not recognized. No file written.")
 
 def get_genomic_ref(fasta: str, outfile: str, gene_dict:dict) -> None:
-    """Parses ungapped fasta file and writes genes+alleles to fasta file.
+    """Parses ungapped FASTA file and writes genes+alleles to FASTA file.
 
-    This function uses only the alleles which were selected from the gapped fasta.
+    This function uses only the alleles which were selected from the gapped FASTA.
     This ensures that the anchor file and genomic reference file correspond
     to one another.
 
     Parameters
     ----------
     fasta : str
-        Ungapped fasta file.
+        Ungapped FASTA file.
     outfile : str
-       Path for the fasta file to be written.
+       Path for the FASTA file to be written.
     gene_dict : dict
         Dictionary which has a single key for gene+allele combinations.
         It contains only two alleles for each gene. For each gene+allele,

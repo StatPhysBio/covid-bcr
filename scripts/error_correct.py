@@ -98,7 +98,7 @@ def get_replicate(header: str) -> int:
     return int(header.split('|')[6].split('=')[-1])
 
 def fasta_parse(fasta: str) -> Tuple[List[str], List[str]]:
-    """Reads a fasta file and prases the headers and the sequences.
+    """Reads a FASTA file and prases the headers and the sequences.
 
     Parameters
     ----------
@@ -108,9 +108,9 @@ def fasta_parse(fasta: str) -> Tuple[List[str], List[str]]:
     Returns
     -------
     headers :  list
-        List of header information from the fasta file.
+        List of header information from the FASTA file.
     sequences : list
-        List of sequences from the fasta file.
+        List of sequences from the FASTA file.
     """
 
     headers = []
@@ -121,7 +121,7 @@ def fasta_parse(fasta: str) -> Tuple[List[str], List[str]]:
     return headers, sequences
 
 def write_to_fasta(outfile: str, headers: List[str], sequences: List[str]) -> None:
-    """Writes headers and sequences to a fasta file quickly.
+    """Writes headers and sequences to a FASTA file quickly.
 
     Parameters
     ----------
