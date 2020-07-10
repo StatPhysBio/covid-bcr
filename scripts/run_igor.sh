@@ -34,11 +34,11 @@ IGOR14="/gscratch/stf/zachmon/software/igor_1-4-0_exec/igor"
 WDPATH=${1}
 FASTA=${2}
 BATCHNAME=${3}
-ABSTARV="/gscratch/stf/zachmon/covid/covid-bcr/abstar_genomic_Vs_for_igor.fasta"
-ANCHORV="/gscratch/stf/zachmon/covid/covid-bcr/igor_V_gene_CDR3_anchors.csv"
-ABSTARJ="/gscratch/stf/zachmon/covid/covid-bcr/abstar_genomic_Js_for_igor.fasta"
-ABSTARD="/gscratch/stf/zachmon/covid/covid-bcr/abstar_genomic_Ds.fasta"
-ANCHORJ="/gscratch/stf/zachmon/covid/covid-bcr/igor_J_gene_CDR3_anchors.csv"
+ABSTARV="covid-bcr/igor_input/abstar_genomic_Vs_for_igor.fasta"
+ANCHORV="covid-bcr/igor_input/igor_V_gene_CDR3_anchors.csv"
+ABSTARJ="covid-bcr/igor_input/abstar_genomic_Js_for_igor.fasta"
+ABSTARD="covid-bcr/igor_input/abstar_genomic_Ds.fasta"
+ANCHORJ="covid-bcr/igor_input/igor_J_gene_CDR3_anchors.csv"
 echo "WDPATH ${WDPATH}"
 echo "FASTA ${FASTA}"
 echo "BATCHNAME ${BATCHNAME}"
