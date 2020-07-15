@@ -82,7 +82,7 @@ def load_abstar(abstar_file: str) -> dict:
 
     Parameters
     ----------
-    abstar_file : string
+    abstar_file : str
         Path to abstar .json output.
 
     Returns
