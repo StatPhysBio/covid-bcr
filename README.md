@@ -18,7 +18,6 @@ $ conda activate covid-bcr
 Other necessary software includes:
  - [R](https://www.r-project.org/)
  - [IGoR](https://github.com/qmarcou/IGoR)
- - [FASTX](http://hannonlab.cshl.edu/fastx_toolkit/)
 
 ## Pipeline and preparing data for analyses
 
