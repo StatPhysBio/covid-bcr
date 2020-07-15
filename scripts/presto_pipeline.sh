@@ -21,13 +21,11 @@
 #    The script look for directories in the ${COVIDDIR}/raw_data/
 #    which point to the paired-reads for a replicate. Creates directories
 #    for assembling, filtering, masking, and collapsing and saves
-#    corresponding files to those directories. fastx is used to convert
-#    the deduplicated FASTAs into one-line sequence FASTAs. fastx was added 
-#    to the PATH variable when this was run.
+#    corresponding files to those directories. Multiline FASTA is converted
+#    into one-line sequence FASTAs.
 #
 #    Required software:
 #    pRESTO https://presto.readthedocs.io/en/stable/
-#    fastx  http://hannonlab.cshl.edu/fastx_toolkit/
 #
 #    Parameters
 #    ----------
@@ -47,7 +45,7 @@
 #SBATCH --nodes=1
 #SBATCH --mem=20G
 #SBATCH --ntasks-per-node=20
-#SBATCH --time=1:00:00
+#SBATCH --time=4:00:00
 
 # TODO Take in a working directory
 #      Take in a conda directory for error correction
@@ -55,12 +53,12 @@ SCRATCHDIR=/gscratch/stf/zachmon/
 CONDADIR=${SCRATCHDIR}miniconda3/
 CONDAENVDIR=${CONDADIR}envs/covid-bcr
 RUNCONDA=${CONDADIR}etc/profile.d/conda.sh
-COVIDDIR=${SCRATCHDIR}covid/round3data/
+COVIDDIR=${SCRATCHDIR}covid/plasma_data/batch1/
 ALIGNDIR=${COVIDDIR}aligned/
 FILTERDIR=${COVIDDIR}filtered/
 TRIMDIR=${COVIDDIR}masked/
 DEDUPDIR=${COVIDDIR}collapsed/
-PRIMERDIR=${COVIDDIR}raw_data/primers/
+PRIMERDIR=/gscratch/stf/zachmon/covid/primers/
 DEDUPONELINE=${COVIDDIR}oneline_collapsed/
 ERRORDIR=${COVIDDIR}error_corrected/
 
@@ -96,8 +94,8 @@ if [ "${ASSEMBLE}" = true ]; then
     fi
     echo "ASSEMBLING!"
     #  Assemble pairs.
-    AssemblePairs.py align -1 ${INPUTDIR}IgG${SAMPLENUM}_1.fastq \
-                           -2 ${INPUTDIR}IgG${SAMPLENUM}_2.fastq \
+    AssemblePairs.py align -1 ${INPUTDIR}${SAMPLENUM}_1.fastq \
+                           -2 ${INPUTDIR}${SAMPLENUM}_2.fastq \
                            --coord illumina \
                            --rc tail \
                            --outname ${ALIGNDIR}${FILENAME} \
@@ -150,7 +148,7 @@ if [ "$COLLAPSE" = true ]; then
                    -n 20 \
                    --uf CPRIMER --cf VPRIMER --act set --inner \
                    --outname ${DEDUPDIR}unique_${FILENAME}
-   
+     
     #  Convert sequence in FASTA file to one line.
-    fasta_formatter -i ${DEDUPDIR}unique_${FILENAME}_collapse-unique.fasta -o ${DEDUPONELINE}${FILENAME}_collapse-unique.fasta
+    awk '{if(NR==1) {print $0} else {if($0 ~ /^>/) {print "\n"$0} else {printf $0}}}' ${DEDUPDIR}unique_${FILENAME}_collapse-unique.fasta > ${DEDUPONELINE}${FILENAME}_collapse-unique.fasta
 fi
