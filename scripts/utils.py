@@ -25,52 +25,74 @@ from os import listdir
 from os.path import isfile, join, isdir
 
 from Bio.SeqIO import parse
+import pandas as pd
 
-#  Dictionary used when referencing times, severity, plotting binding, etc.
-CONST_DATA_DICT = {'H1': {'IgG-nCoV-RBD': [-999.0], 'IgM-nCoV-RBD': [-999.0],
-                          'sample day': [0], 'round': 0, 'severity': 'Healthy', 'sample': ['1']},
-                   'H2': {'IgG-nCoV-RBD': [-999.0], 'IgM-nCoV-RBD': [-999.0],
-                          'sample day': [0], 'round': 0, 'severity': 'Healthy', 'sample': ['2']},
-                   'H3': {'IgG-nCoV-RBD': [-999.0], 'IgM-nCoV-RBD': [-999.0],
-                          'sample day': [0], 'round': 0, 'severity': 'Healthy', 'sample': ['3']},
-                   '19': {'IgG-nCoV-RBD': [0.33], 'IgM-nCoV-RBD': [0.1315],
-                          'sample day': [6], 'round': 1, 'severity': 'Severe', 'sample': ['4']},
-                   '3': {'IgG-nCoV-RBD': [0.2745, 2.08], 'IgM-nCoV-RBD': [0.361, 1.7305],
-                         'sample day': [8, 38], 'round': 1, 'severity': 'Moderate', 'sample': ['5', '14']},
-                   '2': {'IgG-nCoV-RBD': [0.799, 1.447, 1.4265], 'IgM-nCoV-RBD': [0.8005, 1.9265, 2.0875],
-                         'sample day': [2, 15, 34], 'round': 1, 'severity': 'Mild', 'sample': ['6', '9', '15']},
-                   '5': {'IgG-nCoV-RBD': [1.477, 2.028], 'IgM-nCoV-RBD': [1.591, 2.1485],
-                         'sample day': [10, 27], 'round': 1, 'severity': 'Moderate', 'sample': ['7', '13']},
-                   '6': {'IgG-nCoV-RBD': [1.89, 2.293], 'IgM-nCoV-RBD': [2.904, 2.7875],
-                         'sample day': [13, 28], 'round': 1, 'severity': 'Moderate', 'sample': ['8', '16']},
-                   '7': {'IgG-nCoV-RBD': [0.1645, 1.218, 2.092], 'IgM-nCoV-RBD': [0.3355, 2.3245, 3.0465],
-                         'sample day': [11, 16, 39], 'round': 1, 'severity': 'Moderate', 'sample': ['10', '11', '18']},
-                   '18': {'IgG-nCoV-RBD': [2.0025, 1.8605], 'IgM-nCoV-RBD': [1.139, 2.2155],
-                          'sample day': [8, 30], 'round': 1, 'severity': 'Severe', 'sample': ['12', '17']},
-                   '4': {'IgG-nCoV-RBD': [1.892, 2.276], 'IgM-nCoV-RBD': [1.8885, 2.4285],
-                         'sample day': [18, 34], 'round': 2, 'severity': 'Moderate', 'sample': ['19', '23']},
-                   '8': {'IgG-nCoV-RBD': [2.3095, 1.9595, 2.023], 'IgM-nCoV-RBD': [2.129, 2.7705, 2.196],
-                         'sample day': [14, 32, 37], 'round': 2, 'severity': 'Moderate', 'sample': ['20', '22', '27']},
-                   '1': {'IgG-nCoV-RBD': [1.982, 2.0465], 'IgM-nCoV-RBD': [1.823, 1.581],
-                         'sample day': [22, 43], 'round': 2, 'severity': 'Mild', 'sample': ['21', '24']},
-                   '9': {'IgG-nCoV-RBD': [0.4795, 0.1525, 1.551], 'IgM-nCoV-RBD': [0.904, 0.2125, 2.074],
-                         'sample day': [5, 8, 18], 'round': 2, 'severity': 'Moderate', 'sample': ['25', '26', '28']},
-                   '16': {'IgG-nCoV-RBD': [1.97, 2.034], 'IgM-nCoV-RBD': [2.107, 1.254],
-                          'sample day': [44, 53], 'round': 3, 'severity': 'Severe', 'sample': ['29', '30']},
-                   '17': {'IgG-nCoV-RBD': [2.4255, 2.029], 'IgM-nCoV-RBD': [2.848, 2.886],
-                          'sample day': [22, 36], 'round': 3, 'severity': 'Severe', 'sample': ['31', '32']},
-                   '12': {'IgG-nCoV-RBD': [0.159, 0.152], 'IgM-nCoV-RBD': [1.311, 1.1875],
-                          'sample day': [7, 11], 'round': 3, 'severity': 'Moderate', 'sample': ['33', '34']},
-                   '13': {'IgG-nCoV-RBD': [0.123, 1.594], 'IgM-nCoV-RBD': [0.1975, 1.0525],
-                          'sample day': [7, 13], 'round': 3, 'severity': 'Moderate', 'sample': ['35', '36']},
-                   '14': {'IgG-nCoV-RBD': [0.185, 0.308], 'IgM-nCoV-RBD': [0.178, 0.687],
-                          'sample day': [3, 7], 'round': 3, 'severity': 'Moderate', 'sample': ['37', '38']},
-                   '10': {'IgG-nCoV-RBD': [0.248, 0.7375], 'IgM-nCoV-RBD': [0.3735, 0.726],
-                           'sample day': [8, 14], 'round': 3, 'severity': 'Moderate', 'sample': ['39', '40']},
-                   '15': {'IgG-nCoV-RBD': [2.0945, 1.9905, 2.0735], 'IgM-nCoV-RBD': [1.0145, 0.8055, 0.6615],
-                          'sample day': [39, 41, 71], 'round': 3, 'severity': 'Severe', 'sample': ['41', '42', '43']},
-                   '11': {'IgG-nCoV-RBD': [0.1635, 0.518], 'IgM-nCoV-RBD': [0.4795, 1.5075],
-                          'sample day': [10, 15], 'round': 3, 'severity': 'Moderate', 'sample': ['44', '45']}}
+def trim_bcell_info(df: pd.DataFrame, group: str) -> dict:
+    """Orients the DataFrame from the csv as a dictionary and deletes duplicate info.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame created from bcell_info.csv.
+    group : str
+        Specifies which column will be the dictionary keys.
+
+    Returns
+    -------
+    df_dict : dict
+       Dictionary created from DataFrame after removal of duplicate info.
+    """
+
+    df_dict = df.drop(group, axis=1).to_dict(orient='list')
+    list_keys = ['sample_name', 'sample_day', 'replicate']
+    if group == 'sample_name':
+        list_keys.remove('replicate')
+    for key in df_dict:
+        if key not in list_keys:
+            df_dict[key] = df_dict[key][0]
+        else:
+            df_dict[key] = list(set(df_dict[key]))
+
+    if 'replicate' in list_keys:
+        df_dict['replicate'] = [rep.split(" ")[-1] for rep in df_dict['replicate']]
+    else:
+        df_dict['replicate'] = df_dict['replicate'].split(" ")[-1]
+
+    df_dict['severity'] = df_dict['healthy_state']
+    del df_dict['healthy_state']
+
+    try:
+        df_dict['sample'] = df_dict['sample_name']
+        del df_dict['sample_name']
+    except:
+        pass
+
+    try:
+        df_dict['patient'] = df_dict['isolate']
+        del df_dict['isolate']
+    except:
+        pass
+
+    return df_dict
+
+def get_bcell_info(infile: str, group: str='isolate') -> dict:
+    """Reads a csv file containg B cell info (following SRA format) and converts it to a dictioanry.
+
+    Parameters
+    ----------
+    infile : str
+        .csv file containing B cell info which is to be read.
+    group : str, optional
+        Specifies which column will be the dictionary keys.
+
+    Returns
+    -------
+    df_dict : dict
+        Dictionary of B cell info.
+    """
+    df = pd.read_csv(infile)
+    df_dict = df.groupby(group).apply(lambda dfg: trim_bcell_info(dfg, group)).to_dict()
+    return df_dict
 
 def csv_to_dict(in_csv_file: str) -> dict:
     """Converts a csv to a dictionary without using pandas.
@@ -84,7 +106,6 @@ def csv_to_dict(in_csv_file: str) -> dict:
     -------
     csv_dict : dict
         Dictionary of csv data.
-
     """
 
     csv_dict = {}

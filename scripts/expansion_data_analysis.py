@@ -25,6 +25,9 @@ from abstar_pipeline import (denest_lineages, merge_replicates_within_lineage,
                              get_lineage_progenitor_cdr3)
 from utils import *
 
+#  dictionary used when referencing times, severity, plotting binding, etc.
+CONST_DATA_DICT = get_bcell_info('total_b_cell_info.csv')
+
 def get_counts_by_time(headers: list, headers_unique_counts: list, times: list) -> dict:
     """Obtains unique, abundance, and singleton counts per time in a lineage.
 

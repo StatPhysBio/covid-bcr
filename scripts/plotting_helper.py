@@ -31,6 +31,9 @@ import seaborn as sns
 
 from utils import *
 
+#  dictionary used when referencing times, severity, plotting binding, etc.
+CONST_DATA_DICT = get_bcell_info('total_b_cell_info.csv')
+
 #  Set fonttypes so that Adobe Illustrator can be used to edit the final product.
 rcParams['pdf.fonttype'] = 42
 rcParams['ps.fonttype'] = 42
