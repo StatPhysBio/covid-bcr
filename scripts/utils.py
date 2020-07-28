@@ -46,7 +46,7 @@ def trim_bcell_info(df: pd.DataFrame, group: str) -> dict:
     df_dict = df.drop(group, axis=1).to_dict(orient='list')
     list_keys = ['sample_name', 'sample_day', 'replicate']
     if group == 'sample_name':
-        list_keys.remove('replicate')
+        list_keys = []
     for key in df_dict:
         if key not in list_keys:
             df_dict[key] = df_dict[key][0]
@@ -60,6 +60,8 @@ def trim_bcell_info(df: pd.DataFrame, group: str) -> dict:
 
     df_dict['severity'] = df_dict['healthy_state']
     del df_dict['healthy_state']
+    df_dict['sample day'] = sorted(df_dict['sample_day'])
+    del df_dict['sample_day']
 
     try:
         df_dict['sample'] = df_dict['sample_name']
@@ -92,6 +94,7 @@ def get_bcell_info(infile: str, group: str='isolate') -> dict:
     """
     df = pd.read_csv(infile)
     df_dict = df.groupby(group).apply(lambda dfg: trim_bcell_info(dfg, group)).to_dict()
+    df_dict = {str(k):v for k,v in df_dict.items()}
     return df_dict
 
 def csv_to_dict(in_csv_file: str) -> dict:

@@ -22,11 +22,11 @@ import pandas as pd
 import scipy.stats as stats
 
 from abstar_pipeline import (denest_lineages, merge_replicates_within_lineage,
-                             get_lineage_progenitor_cdr3)
+                             get_lineage_progenitor_cdr3, translate)
 from utils import *
 
 #  dictionary used when referencing times, severity, plotting binding, etc.
-CONST_DATA_DICT = get_bcell_info('total_b_cell_info.csv')
+CONST_DATA_DICT = get_bcell_info('/gscratch/stf/zachmon/covid/old_total_b_cell_info.csv')
 
 def get_counts_by_time(headers: list, headers_unique_counts: list, times: list) -> dict:
     """Obtains unique, abundance, and singleton counts per time in a lineage.
@@ -111,8 +111,8 @@ def get_counts_by_time_replicate(headers: list, headers_unique_counts: list, tim
 
     for ti in times:
         #  Instead of running a loop over all the data and obtaining
-        #  the replicates, we will put 0's for all possible replicates. The
-        #  replicates which don't exist will be removed quickly in another function.
+        #  the replicates, we will put 0's for all possible replicates.
+        #  The replicates which don't exist will be removed quickly in get_counts.
         for r in range(0,5):
             count_dict['unique'][(ti,r)] = 0
             count_dict['unique_merged'][(ti,r)] = 0
@@ -139,7 +139,7 @@ def get_counts_by_time_replicate(headers: list, headers_unique_counts: list, tim
     return count_dict,lineage_primer
 
 def get_counts(in_lineages: dict, productive: bool = True,
-               replicate: bool = False, abstar: bool = True) -> pd.DataFrame:
+               replicate: bool = False, abstar: bool = True, mergedcdr3=False) -> pd.DataFrame:
     """Obtains unique, abundance, and singleton counts per time (and time) for all lineages.
 
     Parameters
@@ -176,6 +176,7 @@ def get_counts(in_lineages: dict, productive: bool = True,
     #  Looks up the times from the CONST_DATA_DICT in utils.
     try:
         times = CONST_DATA_DICT[str(patient_key)]['sample day']
+        print(times)
     except:
         print('Patient key given is not present.')
         return
@@ -183,6 +184,11 @@ def get_counts(in_lineages: dict, productive: bool = True,
     for key in lineages:
         lineage = lineages[key]
         lineage_unique_counts = merge_replicates_within_lineage(lineage)
+        if not mergedcdr3:
+            progenitor_cdr3 = translate(get_lineage_progenitor_cdr3(lineage, nt=True))
+        else:
+            progenitor_cdr3 = translate(get_lineage_progenitor_cdr3(lineage_unique_counts, nt=True))
+        dict_key = tuple(list(key) + [progenitor_cdr3])
 
         #  Annotations come from abstar.
         if abstar:
@@ -200,7 +206,7 @@ def get_counts(in_lineages: dict, productive: bool = True,
             primer_split_counts['abundance'][lineage_primer] = {}
             primer_split_counts['singleton'][lineage_primer] = {}
         for count_type in primer_split_counts:
-            primer_split_counts[count_type][lineage_primer][key] = count_dict[count_type]
+            primer_split_counts[count_type][lineage_primer][dict_key] = count_dict[count_type]
 
     #  Convert to dataframe
     df_counts = {}
@@ -226,7 +232,8 @@ def get_counts(in_lineages: dict, productive: bool = True,
                                                                       'level_1': 'v_gene',
                                                                       'level_2': 'j_gene',
                                                                       'level_3': 'cdr3_length',
-                                                                      'level_4': 'cluster_id'})
+                                                                      'level_4': 'cluster_id',
+                                                                      'level_5': 'common_cdr3'})
     return df_counts
 
 def get_columns_with_ints(df: pd.DataFrame) -> list:
@@ -275,30 +282,23 @@ def create_csv_for_analysis(lineages: dict, productive: bool = True, replicate: 
     df_counts = get_counts(lineages, productive=productive,
                            replicate=replicate, abstar=True)
     ti_for_lins = get_columns_with_ints(df_counts['abundance'])
-    lins = df_counts['abundance'][['v_gene','j_gene','cdr3_length','cluster_id','primer']].values.tolist()
+    lins = df_counts['abundance'][['v_gene','j_gene','cdr3_length','cluster_id','primer','common_cdr3']].values.tolist()
     patient = get_patient(lineages[lins[0][0]][lins[0][1]][lins[0][2]][lins[0][3]][0]['seq_id'])
 
-    common_cdr3 = {}
-    for lin in lins:
-        lineage = lineages[lin[0]][lin[1]][lin[2]][lin[3]]
-        common_cdr3[tuple(lin)] = get_lineage_progenitor_cdr3(lineage, nt=False)
-    print('# lins', len(lins))
-    print('Lins with unproductive CDR3s',sum([1 for key in common_cdr3 if common_cdr3[key] == '']))
-
     for i, lin in enumerate(lins):
-        #  Don't save any productive lineages with unproductive progenitors.
-        if common_cdr3[tuple(lin)] == '' and productive==True:
-            continue
         for ti in ti_for_lins:
             csv_dict['primer'].append(lin[4])
             csv_dict['patient'].append(patient)
             csv_dict['v_gene'].append(lin[0])
             csv_dict['j_gene'].append(lin[1])
-            csv_dict['cdr3_length'].append(int(lin[2]))
-            csv_dict['common_cdr3'].append(common_cdr3[tuple(lin)])
+            csv_dict['cdr3_length'].append(int(lin[2])-6)
+            csv_dict['common_cdr3'].append(lin[5])
             csv_dict['cluster_id'].append(int(lin[3]))
-            csv_dict['time'].append(ti[0])
-            csv_dict['replicate'].append(ti[1])
+            if replicate:
+                csv_dict['time'].append(ti[0])
+                csv_dict['replicate'].append(ti[1])
+            else:
+                csv_dict['time'].append(ti)
             csv_dict['abundance'].append(df_counts['abundance'].iloc[i][ti])
             csv_dict['unique'].append(df_counts['unique'].iloc[i][ti])
             csv_dict['unique_merged'].append(df_counts['unique_merged'].iloc[i][ti])
@@ -425,9 +425,9 @@ def main():
         description='Obtain counts from lineages to use in R expansion analysis.')
     parser.add_argument('--lineages', type=str,
                         help='path to json lineages file')
-    parser.add_argument('--productive', action='store_true', default=True,
+    parser.add_argument('--productive', action='store_false', default=True,
                         help='get counts only for productive lineages. (default: True)')
-    parser.add_argument('--replicate', action='store_true', default=True,
+    parser.add_argument('--replicate', action='store_false', default=True,
                         help='get counts separated by replicate (default: True)')
     parser.add_argument('--outfile', type=str,
                         help='path and name to save .csv file')

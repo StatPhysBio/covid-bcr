@@ -32,7 +32,7 @@ import seaborn as sns
 from utils import *
 
 #  dictionary used when referencing times, severity, plotting binding, etc.
-CONST_DATA_DICT = get_bcell_info('total_b_cell_info.csv')
+CONST_DATA_DICT = get_bcell_info('/gscratch/stf/zachmon/covid/plasma_data/plasma_info.csv')
 
 #  Set fonttypes so that Adobe Illustrator can be used to edit the final product.
 rcParams['pdf.fonttype'] = 42
@@ -40,12 +40,14 @@ rcParams['ps.fonttype'] = 42
 
 #  Set colorscheme for data.
 colors = {'Healthy':"#0072B2",
+          'Asymptomatic': "#CC79A7",
           'Mild': "#009E73",
           'Moderate':"#E69F00",
           "Severe": "#D55E00"}
 
 #  Set lighter colors to distinguish from darker colors.
 lightercolors = {'Healthy': (144/255, 215/255, 255/255),
+                 'Asymptomatic': (255/255, 26/255, 255/255),
                  'Mild': (46/255, 255/255, 200/255),
                  'Moderate': (255/255, 212/255, 110/255),
                  "Severe": (255/255, 138/255, 47/255)}
@@ -330,8 +332,8 @@ def cohort_bar(cohort_averages: dict, cohort_data: dict, observable: str,
             for severity in cohort_averages:
                 idx = cohort_averages[severity][observable][-1].index(gene)
                 value = cohort_averages[severity][observable][0][idx]
-                bools += value < 0.01
-            if bools != 4:
+                bools += value >= 0.01
+            if bools != 0:
                 good_genes.append(gene)
     else:
         good_genes = sorted_genes
@@ -349,20 +351,20 @@ def cohort_bar(cohort_averages: dict, cohort_data: dict, observable: str,
         ys.append(y)
 
     if observable == 'v gene':
-        ax.set_xlim(-0.5, xs[3][-1] + 0.5)
+        ax.set_xlim(-0.5, xs[0][-1] + 1.0)
         if yaxis_upper is not None:
             ax.set_ylim(0, yaxis_upper)
         else:
             ax.set_ylim(0, 0.35)
     else:
-        ax.set_xlim(-0.3, xs[3][-1] + 0.3)
+        ax.set_xlim(-0.3, xs[0][-1] + 1.0)
         if yaxis_upper is not None:
             ax.set_ylim(0, yaxis_upper)
         else:
             ax.set_ylim(0, 0.55)
 
     #  Specifiy location of xticks as being in the middle of the grouping of bars.
-    middle = np.mean(np.arange(0, 4))
+    middle = np.mean(np.arange(0, len(cohort_averages)))
     middle_xticks = default_x + middle*width
     ax.set_xticks(middle_xticks)
     ax.set_xticklabels(xlabels, rotation=90, family='Arial')
@@ -419,16 +421,28 @@ def get_stats(in_files, statstype='progenitors', geo=False, pseudocount=0) -> (d
     observables = ['v gene', 'j gene', 'cdr3 length', 'vd ins',
                    'dj ins', 'vd del', 'dj del']
 
-    cohort_raw_data = {"Healthy":[],"Mild":[],"Moderate":[],"Severe":[]}
-    cohort_data = {"Healthy":{},"Mild":{},"Moderate":{},"Severe":{}}
-    cohort_averages = {"Healthy":{},"Mild":{},"Moderate":{},"Severe":{}}
+    cohort_raw_data = {}
+    cohort_data = {}
+    cohort_averages = {}
+    for key in colors:
+        cohort_raw_data[key] = []
+        cohort_data[key] = {}
+        cohort_averages[key] = {}
 
     for patient in CONST_DATA_DICT:
         severity = CONST_DATA_DICT[patient]['severity']
+        if str(severity) == 'nan':
+            severity = 'Mild'
         for o in observables:
             cohort_data[severity][o] = []
             cohort_averages[severity][o] = []
         cohort_raw_data[severity].append(stats[patient])
+
+    for severity in colors:
+        if not cohort_data[severity]:
+            del cohort_data[severity]
+            del cohort_averages[severity]
+            del cohort_raw_data[severity]
 
     for severity in cohort_raw_data:
         for observable in cohort_raw_data[severity][0]:
@@ -450,7 +464,7 @@ def get_stats(in_files, statstype='progenitors', geo=False, pseudocount=0) -> (d
                 continue
             else:
                 cohort_averages[severity][observable] = bin_and_average_values(cohort_data[severity][observable],
-                                                                        observable, indict=False, geo=False)
+                                                                            observable, indict=False, geo=False)
 
     equalize_counters([counter for severity in cohort_data
                        for counter in cohort_data[severity]['v gene']], pseudocount)
@@ -464,7 +478,7 @@ def get_stats(in_files, statstype='progenitors', geo=False, pseudocount=0) -> (d
     for severity in cohort_averages:
         for observable in ['v gene', 'j gene']:
             cohort_averages[severity][observable] = bin_and_average_values(cohort_data[severity][observable],
-                                                                           observable, indict=True, geo=False)
+                                                                       observable, indict=True, geo=False)
     return cohort_data, cohort_averages
 
 def perform_anova(cohort_data: dict, observable: str) -> None:
@@ -525,7 +539,7 @@ def perform_anova(cohort_data: dict, observable: str) -> None:
 
 def perform_ks2samp(cohort_data: dict, observable: str) -> None:
     """Performs two-sample K–S test on pooled cohort data.
-    
+
     Parameters
     ----------
     cohort_data : dict
@@ -537,7 +551,7 @@ def perform_ks2samp(cohort_data: dict, observable: str) -> None:
     -------
     None
     """
-    
+
     for severity in cohort_data:
         if severity == 'Healthy':
             continue

@@ -136,7 +136,7 @@ def create_stats_file(infile: str, outfile: str) -> None:
 
     file_name = infile.split("/")[-1]
     patient = file_name.split("_")[0]
-    lineages = merge_replicates(json_open(in_file)['productive'], productive=True)
+    lineages = merge_replicates(json_open(infile)['productive'], productive=True)
     stats_dict = initialize_stats_dict()
 
     #  Loop over all lineages.
@@ -155,7 +155,7 @@ def main():
                         'files to be saved')
     args = parser.parse_args()
 
-    create_stats_file(args.infile, args.outdir)
+    create_stats_file(args.infile, args.outfile)
 
 if __name__ == '__main__':
     main()

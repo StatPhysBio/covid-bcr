@@ -17,6 +17,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+from copy import deepcopy
 import pandas as pd
 
 from error_correct import error_correct_marginal, error_correct_total, group_data
@@ -207,10 +208,11 @@ def cdr3_position(annotation: dict, junc: bool = False) -> tuple:
         loc = 'junc_'
     else:
         loc = 'cdr3_'
+    residue = 'nt'
 
     try:
-        cdr3_start = annotation['vdj_nt'].index(annotation[loc + 'nt'])
-        cdr3_end = cdr3_start + len(annotation[loc + 'nt'])
+        cdr3_start = annotation['vdj_' + residue].index(annotation[loc + residue])
+        cdr3_end = cdr3_start + len(annotation[loc + residue])
         return cdr3_start,cdr3_end
     except:
         return None
@@ -498,7 +500,10 @@ def merge_replicates_within_lineage(lineage: list) -> list:
         if len(replicate_dict[key]) > 1:
             abundance = sum([get_abundance(annotation['seq_id'])
                              for annotation in replicate_dict[key]])
-            annotation_0 = replicate_dict[key][0]
+
+            #  Make a copy of the annotation to be updated otherwise
+            #  the original lineage dictionary will be altered.
+            annotation_0 = deepcopy(replicate_dict[key][0])
             naive_cdr3_0 = get_naive_cdr3(annotation_0)
             replicate_0 = get_replicate(annotation_0['seq_id'])
 
@@ -544,7 +549,7 @@ def merge_replicates(lineages: dict, productive: bool = True) -> dict:
                         merged_lineage = merge_replicates_within_lineage(lineages[v][j][l][cluster_id])
                         if get_lineage_progenitor_cdr3(merged_lineage) == '':
                             continue
-                        condensed_lineages[(v,j,l,cluster_id)] = merge_replicates_within_lineage(lineages[v][j][l][cluster_id])
+                        condensed_lineages[(v,j,l,cluster_id)] = merged_lineage
     else:
         for v in lineages:
             for j in lineages[v]:

@@ -43,9 +43,8 @@ def annotate_fasta(fasta: str, singletons: bool = True) -> (list, list):
     sequences = []
     headers = []
 
-    if oneline_collapsed and replicate == '':
-        filename = fasta.split("/")[-1]
-        sample = filename.split("_")[0].replace("S","")
+    filename = fasta.split("/")[-1]
+    sample = filename.split("_")[0].replace("S","")
 
     for seq in parse(fasta, 'fasta'):
         uid, cprimer, vprimer, abundance = (x for x in seq.id.split('|'))
@@ -55,7 +54,6 @@ def annotate_fasta(fasta: str, singletons: bool = True) -> (list, list):
             if abundance_int == 1:
                 continue
 
-        sample = sample.split("-")[0]
         header_info = [uid+"="+CONST_SAMPLE_DICT[sample]['patient'],
                        cprimer, vprimer,abundance,
                        "TIME=" + str(CONST_SAMPLE_DICT[sample]['sample day']),
@@ -87,7 +85,7 @@ def map_sample_to_patient(sample_files: list) -> dict:
         files_by_patient[patient] = {}
         for f in sample_files:
             sample_and_replicate = f.split("/")[-1].split("_")[0]
-            sample = sample_and_replicate.split("-")[0].replace("S","")
+            sample = sample_and_replicate.replace("S","")
             if sample in CONST_DATA_DICT[patient]['sample']:
                 files_by_patient[patient][sample_and_replicate] = f
     files_by_patient = sort_dict(files_by_patient)
@@ -113,7 +111,7 @@ def assemble_combined_fasta(savename: str, sample_files: list) -> None:
     all_sequences = []
     all_headers = []
     for f in sample_files:
-        sequences, headers = annotate_fasta(f, oneline_collapsed=True)
+        sequences, headers = annotate_fasta(f)
         all_sequences += sequences
         all_headers += headers
     create_new_fasta(savename, all_headers, all_sequences)
@@ -136,7 +134,6 @@ def main():
     CONST_DATA_DICT = get_bcell_info(args.bcellinfo)
     global CONST_SAMPLE_DICT
     CONST_SAMPLE_DICT = get_bcell_info(args.bcellinfo, group='sample_name')
-
     if dirs is None:
         print("No directory specified, so no files will be located.")
         return
@@ -150,6 +147,7 @@ def main():
     files_by_patient  = map_sample_to_patient(files)
 
     for patient in files_by_patient:
+        print(files_by_patient[patient])
         assemble_combined_fasta(savedir + patient + '.fasta', list(files_by_patient[patient].values()))
 
 if __name__ == '__main__':
