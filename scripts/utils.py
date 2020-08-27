@@ -27,7 +27,7 @@ from os.path import isfile, join, isdir
 from Bio.SeqIO import parse
 import pandas as pd
 
-def trim_bcell_info(df: pd.DataFrame, group: str) -> dict:
+def trim_bcell_info(df: pd.DataFrame, group):
     """Orients the DataFrame from the csv as a dictionary and deletes duplicate info.
 
     Parameters
@@ -43,24 +43,35 @@ def trim_bcell_info(df: pd.DataFrame, group: str) -> dict:
        Dictionary created from DataFrame after removal of duplicate info.
     """
 
-    df_dict = df.drop(group, axis=1).to_dict(orient='list')
-    list_keys = ['sample_name', 'sample_day', 'replicate']
-    if group == 'sample_name':
-        list_keys = []
-    for key in df_dict:
-        if key not in list_keys:
-            df_dict[key] = df_dict[key][0]
-        else:
-            df_dict[key] = list(set(df_dict[key]))
+    df_dict = df.drop(group, axis=1).to_dict()
 
-    if 'replicate' in list_keys:
-        df_dict['replicate'] = [rep.split(" ")[-1] for rep in df_dict['replicate']]
-    else:
-        df_dict['replicate'] = df_dict['replicate'].split(" ")[-1]
+    one_entry = ['organism','age','biomaterial_provider','sex','isolate',
+                 'tissue','cell type','disease', 'healthy_state']
+    list_entry = ['sample_name','sample_day','replicate']
+    dict_entry = ['IgG-nCoV-RBD', 'IgM-nCoV-RBD', 'IgG-SARS-RBD', 'IgG-SARS-NTD',
+                  'IgG-nCoV-NTD', 'S2 protein ELISA']
+
+    if group == 'sample_name':
+        list_entry.remove(group)
+    elif group == 'isolate':
+        one_entry.remove(group)
+
+    for key in one_entry:
+        df_dict[key] = list(df_dict[key].values())[0]
+    for key in dict_entry:
+        replacement = {}
+        for k,v in df_dict['sample_day'].items():
+            replacement[v] = df_dict[key][k]
+        df_dict[key] = replacement
+    for key in list_entry:
+        df_dict[key] = sorted(list(set(df_dict[key].values())))
+
+    df_dict['replicate'] = [int(rep.split(" ")[-1]) for rep in df_dict['replicate']]
 
     df_dict['severity'] = df_dict['healthy_state']
     del df_dict['healthy_state']
-    df_dict['sample day'] = sorted(df_dict['sample_day'])
+
+    df_dict['sample day'] = df_dict['sample_day']
     del df_dict['sample_day']
 
     try:
@@ -77,7 +88,7 @@ def trim_bcell_info(df: pd.DataFrame, group: str) -> dict:
 
     return df_dict
 
-def get_bcell_info(infile: str, group: str='isolate') -> dict:
+def get_bcell_info(df: pd.DataFrame, group: str='isolate') -> dict:
     """Reads a csv file containg B cell info (following SRA format) and converts it to a dictioanry.
 
     Parameters
@@ -92,10 +103,11 @@ def get_bcell_info(infile: str, group: str='isolate') -> dict:
     df_dict : dict
         Dictionary of B cell info.
     """
-    df = pd.read_csv(infile)
+
+    df['isolate'] = df['isolate'].astype(str)
     df_dict = df.groupby(group).apply(lambda dfg: trim_bcell_info(dfg, group)).to_dict()
-    df_dict = {str(k):v for k,v in df_dict.items()}
     return df_dict
+
 
 def csv_to_dict(in_csv_file: str) -> dict:
     """Converts a csv to a dictionary without using pandas.

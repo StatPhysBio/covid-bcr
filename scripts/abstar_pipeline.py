@@ -395,7 +395,7 @@ def annotations_pipeline(infile: str) -> dict:
 
     return annotations
 
-def make_lineages(infile: str) -> dict:
+def make_lineages(infile: str, monoclonal: bool = False) -> dict:
     """Loads annotations file and creates lineages by performing SLC on VJL bins.
 
     Parameters
@@ -409,10 +409,13 @@ def make_lineages(infile: str) -> dict:
         Nested dictionaries of clustered annotations [V][J][L][cluster_id].
     """
 
-    patient = infile.split('/')[-1].split('_')[0]
     annotations = json_open(infile)
-    productive_lineages = vjl_slc(annotations['productive'],abstar=True)
-    unproductive_lineages = vjl_slc(annotations['unproductive'],abstar=True)
+    monoclonal_anns = []
+    if monoclonal:
+        monoclonal_anns = json_open('/gscratch/stf/zachmon/covid/monoclonal_anns.json')
+    print(len(monoclonal_anns))
+    productive_lineages = vjl_slc(annotations['productive'] + monoclonal_anns, abstar=True)
+    unproductive_lineages = vjl_slc(annotations['unproductive'], abstar=True)
     lineages = {'productive': productive_lineages,
                 'unproductive': unproductive_lineages}
     return lineages
@@ -490,7 +493,9 @@ def merge_replicates_within_lineage(lineage: list) -> list:
     for annotation in lineage:
         sequence = annotation['raw_input']
         time = get_time(annotation['seq_id'])
-        replicate_key = (sequence, time)
+        is_plasma = ('plasma' in annotation['seq_id'])
+        is_monoclonal = ('monoclonal' in annotation['seq_id'])
+        replicate_key = (sequence, time, is_plasma, is_monoclonal)
         if replicate_key not in replicate_dict:
             replicate_dict[replicate_key] = []
         replicate_dict[replicate_key].append(annotation)
@@ -729,13 +734,15 @@ def main():
                         metavar=('PATH/TO/FOLDER/FILE', 'PATH/TO/OUTFILE'),
                         help='path to lineages file (.json), '
                         'path for SONIA input (.csv)')
+    parser.add_argument('--monoclonal', action='store_true',
+                        help='cluster monoclonal Abs with repertoire data')
     args = parser.parse_args()
 
     if args.annotations_input is not None:
         annotations = annotations_pipeline(args.annotations_input[0])
         json_save(args.annotations_input[1], annotations)
     if args.lineages_input is not None:
-        lineages = make_lineages(args.lineages_input[0])
+        lineages = make_lineages(args.lineages_input[0], monoclonal=args.monoclonal)
         json_save(args.lineages_input[1], lineages)
     if args.sonia_input is not None:
         df_sonia = create_sonia_input(args.sonia_input[0])
