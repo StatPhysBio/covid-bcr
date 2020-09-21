@@ -473,7 +473,7 @@ def get_naive_cdr3(annotation: dict,  nt: bool = True, junc: bool = True) -> str
     else:
        return None
 
-def merge_replicates_within_lineage(lineage: list) -> list:
+def merge_replicates_within_lineage(lineage: list, plasma_distinct: bool = True) -> list:
     """Merges identical sequences from different replicates at the same timepoint for a single lineage.
 
     Parameters
@@ -487,18 +487,25 @@ def merge_replicates_within_lineage(lineage: list) -> list:
         List of annotations after merging replicates.
     """
 
+    if plasma_distinct:
+        is_plasma_func = lambda x: 'plasma' in x
+    else:
+        is_plasma_func = lambda x: False
+
     #  Create dictionary to identify identical sequences across replicates
     #  at the same timepoint.
     replicate_dict = {}
     for annotation in lineage:
         sequence = annotation['raw_input']
         time = get_time(annotation['seq_id'])
-        is_plasma = ('plasma' in annotation['seq_id'])
-        is_monoclonal = ('monoclonal' in annotation['seq_id'])
-        replicate_key = (sequence, time, is_plasma, is_monoclonal)
-        if replicate_key not in replicate_dict:
-            replicate_dict[replicate_key] = []
-        replicate_dict[replicate_key].append(annotation)
+        is_plasma = is_plasma_func(annotation['seq_id'])
+        is_rbd = ('monoclonal_rbd' in annotation['seq_id'])
+        is_ntd = ('monoclonal_ntd' in annotation['seq_id'])
+        replicate_key = (sequence, time, is_plasma, is_rbd, is_ntd)
+        try:
+            replicate_dict[replicate_key].append(annotation)
+        except:
+            replicate_dict[replicate_key] = [annotation]
 
     condensed_lineage = []
     for key in replicate_dict:
@@ -528,7 +535,7 @@ def merge_replicates_within_lineage(lineage: list) -> list:
             condensed_lineage.append(replicate_dict[key][0])
     return condensed_lineage
 
-def merge_replicates(lineages: dict, productive: bool = True) -> dict:
+def merge_replicates(lineages: dict, productive: bool = True, plasma_distinct: bool = True) -> dict:
     """Apply replicate merging to each lineage.
 
     Parameters
@@ -551,7 +558,7 @@ def merge_replicates(lineages: dict, productive: bool = True) -> dict:
             for j in lineages[v]:
                 for l in lineages[v][j]:
                     for cluster_id in lineages[v][j][l]:
-                        merged_lineage = merge_replicates_within_lineage(lineages[v][j][l][cluster_id])
+                        merged_lineage = merge_replicates_within_lineage(lineages[v][j][l][cluster_id], plasma_distict=plasma_distinct)
                         if get_lineage_progenitor_cdr3(merged_lineage) == '':
                             continue
                         condensed_lineages[(v,j,l,cluster_id)] = merged_lineage
@@ -560,7 +567,7 @@ def merge_replicates(lineages: dict, productive: bool = True) -> dict:
             for j in lineages[v]:
                 for l in lineages[v][j]:
                     for cluster_id in lineages[v][j][l]:
-                        condensed_lineages[(v,j,l,cluster_id)] = merge_replicates_within_lineage(lineages[v][j][l][cluster_id])
+                        condensed_lineages[(v,j,l,cluster_id)] = merge_replicates_within_lineage(lineages[v][j][l][cluster_id], plasma_distinct)
     return condensed_lineages
 
 def denest_lineages(lineages: dict, productive: bool = True) -> dict:

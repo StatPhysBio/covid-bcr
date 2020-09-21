@@ -99,10 +99,10 @@ def ham_dist_vectorform(strings: list) -> np.array:
     dists = np.zeros(num_entries,dtype=np.float16)
     index = 0
     for i,s1 in enumerate(strings):
-        for s2 in strings[i+1:]:
-            dists[index] = (hamming_distance(s1,s2) / normalization)
-            index+=1
-    return dists
+        for s2 in strings[i + 1:]:
+            dists[index] = hamming_distance(s1,s2)
+            index += 1
+    return dists / normalization
 
 def get_minimum_distances(vectorform: np.array) -> np.array:
     """Returns the minimum pairwise Hamming distances, useful for determing a clustering threshold.
@@ -152,7 +152,7 @@ def slc_dist_input(vectorform: np.array, threshold: float) -> (np.array, np.arra
     return links, clusters
 
 def slc_vjl_bin(vjl_bin: list, partis: bool = False, abstar: bool = True,
-                threshold: float = None) -> dict:
+                threshold: float = None, nt: bool  = True) -> dict:
     """Obtains the set of unique CDR3s from a VJL grouping and performs single-linkage clustering.
 
     Parameters
@@ -165,6 +165,8 @@ def slc_vjl_bin(vjl_bin: list, partis: bool = False, abstar: bool = True,
         Specifies if the annotations came from abstar.
     threshold : float, optional
         Specifies the distance threshold to be use for single-linkage clustering.
+    nt: bool, optional
+        Specifies whether or not to do SLC on nucleotide or amino acid CDR3 sequences.
 
     Returns
     -------
@@ -187,7 +189,10 @@ def slc_vjl_bin(vjl_bin: list, partis: bool = False, abstar: bool = True,
     elif abstar:
         annotations_map = {}
         for ann in vjl_bin:
-            cdr3 = ann['junc_nt']
+            if nt:
+                cdr3 = ann['junc_nt']
+            else:
+                cdr3 = translate(ann['junc_nt'])
             if cdr3 not in annotations_map:
                 annotations_map[cdr3] = []
             annotations_map[cdr3].append(ann)
