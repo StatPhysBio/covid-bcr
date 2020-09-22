@@ -44,7 +44,7 @@ def annotate_fasta(fasta: str, singletons: bool = True) -> (list, list):
     headers = []
 
     filename = fasta.split("/")[-1]
-    sample = filename.split("_")[0].replace("S","")
+    sample = 'IgG' + filename.split("_")[0].replace("S","")
 
     for seq in parse(fasta, 'fasta'):
         uid, cprimer, vprimer, abundance = (x for x in seq.id.split('|'))
@@ -56,9 +56,9 @@ def annotate_fasta(fasta: str, singletons: bool = True) -> (list, list):
 
         header_info = [uid+"="+CONST_SAMPLE_DICT[sample]['patient'],
                        cprimer, vprimer,abundance,
-                       "TIME=" + str(CONST_SAMPLE_DICT[sample]['sample day']),
+                       "TIME=" + str(CONST_SAMPLE_DICT[sample]['sample day'][0]),
                        "SEVERITY=" + str(CONST_SAMPLE_DICT[sample]['severity']),
-                       "REPLICATE=" + str(CONST_SAMPLE_DICT[sample]['replicate'])]
+                       "REPLICATE=" + str(CONST_SAMPLE_DICT[sample]['replicate'][0])]
 
         header = "|".join(header_info)
         header = ">" + header
@@ -79,15 +79,15 @@ def map_sample_to_patient(sample_files: list) -> dict:
     files_by_patient : dict
         Dictionary with keys given by patient ID and values which are sample files.
     """
-
     files_by_patient = {}
     for patient in CONST_DATA_DICT:
         files_by_patient[patient] = {}
         for f in sample_files:
-            sample_and_replicate = f.split("/")[-1].split("_")[0]
-            sample = sample_and_replicate.replace("S","")
-            if sample in CONST_DATA_DICT[patient]['sample']:
-                files_by_patient[patient][sample_and_replicate] = f
+            sample = f.split('/')[-1].split('_')[0].replace('S', '')
+            sample_w_igg = 'IgG' + sample
+            print(sample)
+            if sample_w_igg in CONST_DATA_DICT[patient]['sample']:
+                files_by_patient[patient][sample] = f
     files_by_patient = sort_dict(files_by_patient)
     for key in files_by_patient:
         files_by_patient[key] = sort_dict(files_by_patient[key])
@@ -141,11 +141,12 @@ def main():
         print("No save directory is specified.")
         return
 
+
     files = []
     for d in dirs:
         files += get_files(d,"unique.fasta")
     files_by_patient  = map_sample_to_patient(files)
-
+    print(files_by_patient)
     for patient in files_by_patient:
         print(files_by_patient[patient])
         assemble_combined_fasta(savedir + patient + '.fasta', list(files_by_patient[patient].values()))

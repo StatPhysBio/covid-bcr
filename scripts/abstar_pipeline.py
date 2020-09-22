@@ -558,7 +558,7 @@ def merge_replicates(lineages: dict, productive: bool = True, plasma_distinct: b
             for j in lineages[v]:
                 for l in lineages[v][j]:
                     for cluster_id in lineages[v][j][l]:
-                        merged_lineage = merge_replicates_within_lineage(lineages[v][j][l][cluster_id], plasma_distict=plasma_distinct)
+                        merged_lineage = merge_replicates_within_lineage(lineages[v][j][l][cluster_id], plasma_distinct=plasma_distinct)
                         if get_lineage_progenitor_cdr3(merged_lineage) == '':
                             continue
                         condensed_lineages[(v,j,l,cluster_id)] = merged_lineage
@@ -567,7 +567,7 @@ def merge_replicates(lineages: dict, productive: bool = True, plasma_distinct: b
             for j in lineages[v]:
                 for l in lineages[v][j]:
                     for cluster_id in lineages[v][j][l]:
-                        condensed_lineages[(v,j,l,cluster_id)] = merge_replicates_within_lineage(lineages[v][j][l][cluster_id], plasma_distinct)
+                        condensed_lineages[(v,j,l,cluster_id)] = merge_replicates_within_lineage(lineages[v][j][l][cluster_id], plasma_distinct=plasma_distinct)
     return condensed_lineages
 
 def denest_lineages(lineages: dict, productive: bool = True) -> dict:
@@ -693,7 +693,7 @@ def create_sonia_input(infile: str) -> pd.DataFrame:
     """
 
     in_lineages = json_open(infile)['productive']
-    lineages = merge_replicates(in_lineages)
+    lineages = merge_replicates(in_lineages, plasma_distinct=False)
     sonia_input = []
     patient = infile.split('/')[-1].split('_')[0]
 

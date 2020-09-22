@@ -88,7 +88,7 @@ def trim_bcell_info(df: pd.DataFrame, group):
 
     return df_dict
 
-def get_bcell_info(df: pd.DataFrame, group: str='isolate') -> dict:
+def get_bcell_info(infile: str, group: str='isolate') -> dict:
     """Reads a csv file containg B cell info (following SRA format) and converts it to a dictioanry.
 
     Parameters
@@ -104,6 +104,7 @@ def get_bcell_info(df: pd.DataFrame, group: str='isolate') -> dict:
         Dictionary of B cell info.
     """
 
+    df = pd.read_csv(infile)
     df['isolate'] = df['isolate'].astype(str)
     df_dict = df.groupby(group).apply(lambda dfg: trim_bcell_info(dfg, group)).to_dict()
     return df_dict
