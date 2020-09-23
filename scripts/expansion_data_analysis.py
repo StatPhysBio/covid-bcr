@@ -19,7 +19,7 @@
 
 import numpy as np
 import pandas as pd
-import scipy.stats as stats
+import sys
 
 from abstar_pipeline import (denest_lineages, merge_replicates_within_lineage,
                              get_lineage_progenitor_cdr3, translate)
@@ -42,7 +42,8 @@ def create_count_dict() -> dict:
     orig_keys = ['unique', 'unique_merged', 'abundance', 'singleton']
     keys = ['bulk_' + k for k in orig_keys]
     keys += ['plasma_' + k for k in orig_keys]
-    keys += ['combined_' + k for k in orig_keys if k != 'unique']
+    keys += ['combined_' + k for k in orig_keys
+             if k != 'unique' and k != 'abundance']
     keys += ['rbd_unique', 'rbd_seqs', 'ntd_unique','ntd_seqs']
     count_dict = {}
     for k in keys:
@@ -63,6 +64,7 @@ def get_counts_by_time_replicate(headers: list, headers_unique_counts: list,
         List of times at which sequences in the lineage could have existed.
     replicates : list
         List of replicates in which sequences in the lineage could have existed.
+
     Returns
     -------
     count_dict : dict
@@ -95,7 +97,7 @@ def get_counts_by_time_replicate(headers: list, headers_unique_counts: list,
         elif 'monoclonal' in u:
             continue
         else:
-            count_dict['unique_merged'][(ti,rep)] += 1
+            count_dict['bulk_unique_merged'][(ti,rep)] += 1
 
     for i,u in enumerate(headers_plasma_indistinct):
         vprimers[i] = get_vprimer(u)
@@ -104,10 +106,9 @@ def get_counts_by_time_replicate(headers: list, headers_unique_counts: list,
         ti = get_time(u)
         rep = get_replicate(u)
         abundance = get_abundance(u)
-        count_dict['combined_unique_merged'] += 1
-        count_dict['combined_abundance'] += abundance
+        count_dict['combined_unique_merged'][(ti,rep)] += 1
         if abundance == 1:
-            count_dict['combined_singleton'] += 1
+            count_dict['combined_singleton'][(ti,rep)] += 1
     lineage_primer = Counter(vprimers).most_common(1)[0][0]
 
     for u in headers:
@@ -128,11 +129,11 @@ def get_counts_by_time_replicate(headers: list, headers_unique_counts: list,
             count_dict['ntd_unique'][(ti,rep)] += 1
             count_dict['ntd_seqs'][(ti,rep)].append(u.split('|')[0])
         else:
-            count_dict['unique'][(ti,rep)] += 1
+            count_dict['bulk_unique'][(ti,rep)] += 1
             abundance = get_abundance(u)
-            count_dict['abundance'][(ti,rep)] += abundance
+            count_dict['bulk_abundance'][(ti,rep)] += abundance
             if singleton:
-                count_dict['singleton'][(ti,rep)] += 1
+                count_dict['bulk_singleton'][(ti,rep)] += 1
 
     return count_dict,lineage_primer
 
@@ -186,7 +187,7 @@ def get_counts(in_lineages: dict, productive: bool = True,
     for key in lineages:
         lineage = lineages[key]
         lineage_unique_counts = merge_replicates_within_lineage(lineage)
-        lineage_indistinct_plasma = merge_replicates_within_lineage(lineage, plasma_distinct=False)
+        lineage_plasma_indistinct = merge_replicates_within_lineage(lineage, plasma_distinct=False)
         if not mergedcdr3:
             observed_cdr3_nt = Counter([ann['junc_nt'] for ann in lineage
                                         if 'monoclonal' not in ann['seq_id']]).most_common()[0][0]
@@ -208,7 +209,7 @@ def get_counts(in_lineages: dict, productive: bool = True,
         if abstar:
             headers = [ann['seq_id'] for ann in lineage]
             headers_unique_counts = [ann['seq_id'] for ann in lineage_unique_counts]
-            headers_indistinct_plasma = [ann['seq_id'] for ann in lineage_indistinct_plasma]
+            headers_plasma_indistinct = [ann['seq_id'] for ann in lineage_plasma_indistinct]
 
         #  Annotations come from partis.
         else:
@@ -216,8 +217,8 @@ def get_counts(in_lineages: dict, productive: bool = True,
             headers_unique_counts = [ann['unique_ids'][0] for ann in lineage_unique_counts]
 
         count_dict,lineage_primer = get_counts_by_time_replicate(headers, headers_unique_counts,
-                                                                 headers_indistinct_plasma, times, replicates)
-        if lineage_primer not in primer_split_counts['unique']:
+                                                                 headers_plasma_indistinct, times, replicates)
+        if lineage_primer not in primer_split_counts['bulk_unique']:
             for count_type in primer_split_counts:
                 primer_split_counts[count_type][lineage_primer] = {}
         for count_type in primer_split_counts:
@@ -294,18 +295,19 @@ def create_csv_for_analysis(lineages: dict, productive: bool = True,
         Dictionary of data to be used in R expansion analysis.
     """
 
-    csv_dict = {'patient': [], 'v_gene': [], 'j_gene': [], 'cdr3_length': [],
+    csv_dict = {'patient': [], 'v_gene': [], 'j_gene': [], 'cdr3_length': [], 'cluster_id': [],
                 'observed_cdr3_nt': [], 'observed_cdr3': [], 'progenitor_cdr3_nt': [],
-                'progenitor_cdr3': [], 'cluster_id':[], 'time': [], 'replicate':[],
-                'abundance': [], 'unique': [], 'unique_merged': [], 'singleton': [],
-                'productive': [],'primer':[], 'plasma_abundance': [], 'plasma_unique': [],
-                'plasma_unique_merged': [], 'plasma_singleton': [], 'rbd_unique': [],
-                'rbd_seqs': [], 'ntd_unique': [], 'ntd_seqs': [], 'aa_max_min_d': []}
+                'progenitor_cdr3': [], 'time': [], 'replicate':[], 'productive': [], 'primer': [],
+                'bulk_abundance': [], 'bulk_unique': [], 'bulk_unique_merged': [], 'bulk_singleton': [],
+                'plasma_abundance': [], 'plasma_unique': [], 'plasma_unique_merged': [], 'plasma_singleton': [],
+                'combined_unique_merged': [], 'combined_singleton': [],
+                'rbd_unique': [], 'rbd_seqs': [], 'ntd_unique': [], 'ntd_seqs': [],
+                'aa_max_min_d': []}
 
     df_counts = get_counts(lineages, productive=productive,
                             abstar=True, mergedcdr3=mergedcdr3)
-    ti_for_lins = get_columns_with_ints(df_counts['abundance'])
-    lins = df_counts['abundance'][['v_gene','j_gene','cdr3_length','cluster_id','primer',
+    ti_for_lins = get_columns_with_ints(df_counts['bulk_abundance'])
+    lins = df_counts['bulk_abundance'][['v_gene','j_gene','cdr3_length','cluster_id','primer',
                                    'observed_cdr3_nt', 'observed_cdr3',
                                    'progenitor_cdr3_nt', 'progenitor_cdr3', 'aa_max_min_d']].values.tolist()
     patient = None
@@ -324,7 +326,7 @@ def create_csv_for_analysis(lineages: dict, productive: bool = True,
             csv_dict['patient'].append(patient)
             csv_dict['v_gene'].append(lin[0])
             csv_dict['j_gene'].append(lin[1])
-            csv_dict['cdr3_length'].append(int(lin[2])-6)
+            csv_dict['cdr3_length'].append(int(lin[2]))
             csv_dict['observed_cdr3_nt'].append(lin[5])
             csv_dict['observed_cdr3'].append(lin[6])
             csv_dict['progenitor_cdr3_nt'].append(lin[7])
@@ -333,10 +335,10 @@ def create_csv_for_analysis(lineages: dict, productive: bool = True,
             csv_dict['cluster_id'].append(int(lin[3]))
             csv_dict['time'].append(ti[0])
             csv_dict['replicate'].append(ti[1])
-            csv_dict['abundance'].append(df_counts['abundance'].iloc[i][ti])
-            csv_dict['unique'].append(df_counts['unique'].iloc[i][ti])
-            csv_dict['unique_merged'].append(df_counts['unique_merged'].iloc[i][ti])
-            csv_dict['singleton'].append(df_counts['singleton'].iloc[i][ti])
+            csv_dict['bulk_abundance'].append(df_counts['bulk_abundance'].iloc[i][ti])
+            csv_dict['bulk_unique'].append(df_counts['bulk_unique'].iloc[i][ti])
+            csv_dict['bulk_unique_merged'].append(df_counts['bulk_unique_merged'].iloc[i][ti])
+            csv_dict['bulk_singleton'].append(df_counts['bulk_singleton'].iloc[i][ti])
             csv_dict['plasma_abundance'].append(df_counts['plasma_abundance'].iloc[i][ti])
             csv_dict['plasma_unique'].append(df_counts['plasma_unique'].iloc[i][ti])
             csv_dict['plasma_unique_merged'].append(df_counts['plasma_unique_merged'].iloc[i][ti])
@@ -346,78 +348,12 @@ def create_csv_for_analysis(lineages: dict, productive: bool = True,
             csv_dict['ntd_unique'].append(df_counts['ntd_unique'].iloc[i][ti])
             csv_dict['ntd_seqs'].append(df_counts['ntd_seqs'].iloc[i][ti])
             csv_dict['productive'].append(productive)
+            csv_dict['combined_unique_merged'].append(df_counts['combined_unique_merged'].iloc[i][ti])
+            csv_dict['combined_singleton'].append(df_counts['combined_singleton'].iloc[i][ti])
     return csv_dict
 
 #  TODO: Finish Fisher exact test implementation here.
 #        R implementation in notebook.
-
-def fisher_exact_test(df_counts, time_threshold=18, testtype='less'):
-    fisher_output = {}
-    for primer in list(set(df_counts['primer'])):
-        fisher_output[primer] = fisher_exact_test_by_primer(df_counts[df_counts['primer'] == primer],
-                                                            time_threshold=time_threshold,
-                                                            testtype=testtype)
-    return fisher_output
-
-def fisher_exact_test_replicate(df_counts, testtype='two-sided'):
-    fisher_output = {}
-    for primer in df_counts:
-        fisher_output[primer] = fisher_exact_test_by_primer_replicate(df_counts[primer],
-                                                                      testtype=testtype)
-    return fisher_output
-
-def fisher_exact_test_by_primer_replicate(df_counts_primer,testtype='two-sided'):
-    df = df_counts_primer.sort_index()
-    col_list= list(df)
-    times = list(set([c[0] for c in col_list]))
-    totals = [sum(df[c]) for c in col_list]
-    for i,c in enumerate(col_list):
-        df[(c[0],c[1]+0.1)] = totals[i] - df[c]
-
-    #  Dict of how many replicates at each timepoint
-    rep_dict = {}
-    for key in list(df):
-        if key[0] not in rep_dict:
-            rep_dict[key[0]] = []
-        if key[1] % 1 == 0:
-            rep_dict[key[0]].append(key[1])
-    for ti in single_rep_ti:
-        del rep_dict[ti]
-    for idx,row in df.iterrows():
-        for ti in rep_dict:
-            for index, rep_num1 in enumerate(rep_dict[ti]):
-                for rep_num2 in rep_dict[ti][index+1:]:
-                    oddsratio,pvalue = stats.fisher_exact([[row[(ti,rep_num1)],row[(ti,rep_num1)]],
-                                    [row[(ti,rep_num2)],row[(ti,rep_num2)]]],
-                                   alternative='two-sided')
-                    key = '('+str(rep_num1)+','+str(rep_num2)+')'
-                    df.at[idx,(ti,'oddsratio'+key)] = oddsratio
-                    df.at[idx,(ti,'pvalue'+key)] = pvalue
-    return df
-
-def fisher_exact_test_by_primer(df_counts_primer,time_threshold=18,testtype='less'):
-    df = df_counts_primer.sort_index()
-    col_list= list(df)
-    df['total'] = df[col_list].sum(axis=1)
-    early_ti = [ti for ti in col_list if ti < time_threshold]
-    late_ti = [ti for ti in col_list if ti >= time_threshold]
-    df['early'] = df[early_ti].sum(axis=1)
-    df['late'] = df[late_ti].sum(axis=1)
-    df['late/early'] = df['late']/df['early']
-    total_early = sum(df['early'])
-    total_late = sum(df['late'])
-    df['other_early'] = total_early - df['early']
-    df['other_late'] = total_late - df['late']
-
-
-    for idx,row in df.iterrows():
-        oddsratio,pvalue = stats.fisher_exact([[row['early'],row['other_early']],
-                    [row['late'],row['other_late']]],
-                   alternative='less')
-        df.at[idx,'oddsratio'] = oddsratio
-        df.at[idx,'pvalue'] = pvalue
-    df['oddsratio'] = np.reciprocal(df['oddsratio'])
-    return df
 
 def main():
     import argparse
@@ -447,13 +383,11 @@ def main():
     csv_dict = create_csv_for_analysis(lineages['productive'], productive=args.productive,
                                        mergedcdr3=args.mergedcdr3)
     pd.DataFrame(csv_dict).to_csv(args.outfile, index=False)
-    #make_csv_for_analysis(args.outfile, csv_dict)
 
     #  Get counts for unproductive lineages.
     csv_dict = create_csv_for_analysis(lineages['unproductive'], productive=False,
                                        mergedcdr3=args.mergedcdr3)
     pd.DataFrame(csv_dict).to_csv(args.outfile.replace('.csv', '_unproductive.csv'), index=False)
-    #make_csv_for_analysis(args.outfile.replace('.csv', '_unproductive.csv'), csv_dict)
 
 if __name__ == '__main__':
     main()

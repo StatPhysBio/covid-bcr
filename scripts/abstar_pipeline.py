@@ -706,8 +706,11 @@ def create_sonia_input(infile: str) -> pd.DataFrame:
         progenitor_cdr3_aa = translate(progenitor_cdr3)
         if ((progenitor_cdr3_aa[0] == 'C')
            and (progenitor_cdr3_aa[-1] == 'W' or progenitor_cdr3_aa[-1] == 'F')):
+            lineage_length = sum([1 for a in lineages[key]
+                                  if 'rbd' not in a['seq_id']
+                                  and 'ntd' not in a['seq_id']])
             sonia_input.append((progenitor_cdr3_aa, key[0], key[1],
-                                len(lineages[key]), patient, progenitor_cdr3))
+                                lineage_length, patient, progenitor_cdr3))
     df_sonia = pd.DataFrame(sonia_input, columns=['progenitor_cdr3', 'v_gene',
                                               'j_gene', 'lineage_size',
                                               'patient', 'nt_cdr3'])
