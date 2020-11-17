@@ -19,7 +19,7 @@
 
 from utils import *
 
-def annotate_fasta(fasta: str, singletons: bool = True) -> (list, list):
+def annotate_fasta(fasta: str, singletons: bool = True, plasma: bool = False) -> (list, list):
     """Annotates a online deduplicated FASTA file from the pRESTO output with patient, replicate, and time information.
 
     Replicate number will be taken from the filename. If no replicate number is supplied in the filename
@@ -44,26 +44,52 @@ def annotate_fasta(fasta: str, singletons: bool = True) -> (list, list):
     headers = []
 
     filename = fasta.split("/")[-1]
-    sample = 'IgG' + filename.split("_")[0].replace("S","")
+    try:
+        sample = 'IgG' + filename.split("_")[0].replace("S","")
+        for seq in parse(fasta, 'fasta'):
+            uid, cprimer, vprimer, abundance = (x for x in seq.id.split('|'))
 
-    for seq in parse(fasta, 'fasta'):
-        uid, cprimer, vprimer, abundance = (x for x in seq.id.split('|'))
+            abundance_int = int(abundance.split("=")[-1])
+            if not singletons:
+                if abundance_int == 1:
+                    continue
 
-        abundance_int = int(abundance.split("=")[-1])
-        if not singletons:
-            if abundance_int == 1:
-                continue
+            header_info = [uid+"="+CONST_SAMPLE_DICT[sample]['patient'],
+                           cprimer, vprimer,abundance,
+                           "TIME=" + str(CONST_SAMPLE_DICT[sample]['sample day'][0]),
+                           "SEVERITY=" + str(CONST_SAMPLE_DICT[sample]['severity']),
+                           "REPLICATE=" + str(CONST_SAMPLE_DICT[sample]['replicate'][0])]
+            if plasma:
+                header_info.append('plasma')
 
-        header_info = [uid+"="+CONST_SAMPLE_DICT[sample]['patient'],
-                       cprimer, vprimer,abundance,
-                       "TIME=" + str(CONST_SAMPLE_DICT[sample]['sample day'][0]),
-                       "SEVERITY=" + str(CONST_SAMPLE_DICT[sample]['severity']),
-                       "REPLICATE=" + str(CONST_SAMPLE_DICT[sample]['replicate'][0])]
+            header = "|".join(header_info)
+            header = ">" + header
+            headers.append(header)
+            sequences.append(str(seq.seq))
+    except:
+        sample = filename.split("_")[0].replace("S","")
+        for seq in parse(fasta, 'fasta'):
+            uid, cprimer, vprimer, abundance = (x for x in seq.id.split('|'))
 
-        header = "|".join(header_info)
-        header = ">" + header
-        headers.append(header)
-        sequences.append(str(seq.seq))
+            abundance_int = int(abundance.split("=")[-1])
+            if not singletons:
+                if abundance_int == 1:
+                    continue
+
+            header_info = [uid+"="+CONST_SAMPLE_DICT[sample]['patient'],
+                           cprimer, vprimer,abundance,
+                           "TIME=" + str(CONST_SAMPLE_DICT[sample]['sample day'][0]),
+                           "SEVERITY=" + str(CONST_SAMPLE_DICT[sample]['severity']),
+                           "REPLICATE=" + str(CONST_SAMPLE_DICT[sample]['replicate'][0])]
+
+            if plasma:
+                header_info.append('plasma')
+
+            header = "|".join(header_info)
+            header = ">" + header
+            headers.append(header)
+            sequences.append(str(seq.seq))
+
     return sequences, headers
 
 def map_sample_to_patient(sample_files: list) -> dict:
@@ -86,14 +112,15 @@ def map_sample_to_patient(sample_files: list) -> dict:
             sample = f.split('/')[-1].split('_')[0].replace('S', '')
             sample_w_igg = 'IgG' + sample
             print(sample)
-            if sample_w_igg in CONST_DATA_DICT[patient]['sample']:
+            if (sample in CONST_DATA_DICT[patient]['sample']
+                or sample_w_igg in CONST_DATA_DICT[patient]['sample']):
                 files_by_patient[patient][sample] = f
     files_by_patient = sort_dict(files_by_patient)
     for key in files_by_patient:
         files_by_patient[key] = sort_dict(files_by_patient[key])
     return files_by_patient
 
-def assemble_combined_fasta(savename: str, sample_files: list) -> None:
+def assemble_combined_fasta(savename: str, sample_files: list, plasma: bool = False) -> None:
     """Annotates given files and saves them all to a single FASTA file.
 
     Parameters
@@ -111,7 +138,7 @@ def assemble_combined_fasta(savename: str, sample_files: list) -> None:
     all_sequences = []
     all_headers = []
     for f in sample_files:
-        sequences, headers = annotate_fasta(f)
+        sequences, headers = annotate_fasta(f, plasma=plasma)
         all_sequences += sequences
         all_headers += headers
     create_new_fasta(savename, all_headers, all_sequences)
@@ -126,6 +153,7 @@ def main():
     parser.add_argument('--savedir', type=str, help='directory to save files')
     parser.add_argument('--bcellinfo', type=str, default='total_b_cell_info.csv',
                         help='path to SRA-style csv file')
+    parser.add_argument('--plasma', action='store_true', help='specify if plasma')
     args = parser.parse_args()
 
     dirs = args.dirs
@@ -149,7 +177,7 @@ def main():
     print(files_by_patient)
     for patient in files_by_patient:
         print(files_by_patient[patient])
-        assemble_combined_fasta(savedir + patient + '.fasta', list(files_by_patient[patient].values()))
+        assemble_combined_fasta(savedir + patient + '.fasta', list(files_by_patient[patient].values()), plasma=args.plasma)
 
 if __name__ == '__main__':
     main()

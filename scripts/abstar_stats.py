@@ -23,7 +23,8 @@ import operator
 import numpy as np
 
 from abstar_pipeline import (merge_replicates, get_lineage_progenitor_cdr3,
-                             get_lineage_progenitor)
+                             get_lineage_progenitor, denest_lineages,
+                             merge_replicates_within_lineage, get_lineage_size)
 from utils import *
 
 def initialize_stats_dict() -> dict:
@@ -43,11 +44,15 @@ def initialize_stats_dict() -> dict:
     stats_dict = {'nonsingletons': {'v gene': [], 'j gene': [], 'd gene': [],
                                     'cdr3 length': [],
                                     'vd ins': [], 'dj ins': [],
-                                    'vd del': [], 'dj del': []},
+                                    'vd del': [], 'dj del': [],
+                                    'plasmablast': [], 'bulk': [],
+                                    'patient': []},
                   'progenitors': {'v gene': [], 'j gene': [], 'd gene': [],
                                   'cdr3 length': [],
                                   'vd ins': [], 'dj ins': [],
-                                  'vd del': [], 'dj del': []}}
+                                  'vd del': [], 'dj del': [],
+                                  'plasmablast': [], 'bulk': [],
+                                  'patient': []}}
     return stats_dict
 
 def fill_dict(in_dict: dict, annotation: dict) -> None:
@@ -99,14 +104,20 @@ def get_stats(stats_dict: dict, lineage: list) -> None:
     None
     """
 
-    progenitor_cdr3 = get_lineage_progenitor_cdr3(lineage)
-    if progenitor_cdr3 == '' or len(lineage) < 3:
+    lineage_unique_counts = merge_replicates_within_lineage(lineage)
+    lineage_plasma_indistinct = merge_replicates_within_lineage(lineage, plasma_distinct=False)
+
+    progenitor_cdr3 = get_lineage_progenitor_cdr3(lineage_unique_counts)
+    if progenitor_cdr3 == '' or get_lineage_size(lineage_plasma_indistinct) < 3:
         return
 
     progenitor_sequence = get_lineage_progenitor(lineage)
     progenitor_stats_recorded = False
 
-    for j, annotation in enumerate(lineage):
+    is_bulk = False
+    is_plasma = False
+    bulk_count = 0
+    for j, annotation in enumerate(lineage_unique_counts):
         #  Get statistics for the lineage progenitor. The lineage progenitor annotation
         #  might come from a singleton or nonsingleton.
         if (progenitor_stats_recorded == False
@@ -114,10 +125,32 @@ def get_stats(stats_dict: dict, lineage: list) -> None:
             fill_dict(stats_dict['progenitors'], annotation)
             progenitor_stats_recorded = True
 
+        if 'plasma' in annotation['seq_id']:
+            is_plasma = True
+        if ('plasma' not in annotation['seq_id']
+            and 'rbd' not in annotation['seq_id']
+            and 'ntd' not in annotation['seq_id']):
+            bulk_count += 1
+        if bulk_count > 2:
+            is_bulk = True
         #  Get statistics for nonsingletons only.
         if get_abundance(annotation['seq_id']) == 1:
             continue
         fill_dict(stats_dict['nonsingletons'], annotation)
+
+        if 'plasma' in annotation['seq_id']:
+            stats_dict['nonsingletons']['plasmablast'].append(True)
+        else:
+            stats_dict['nonsingletons']['plasmablast'].append(False)
+        if ('plasma' not in annotation['seq_id']
+            and 'rbd' not in annotation['seq_id']
+            and 'ntd' not in annotation['seq_id']):
+            stats_dict['nonsingletons']['bulk'].append(True)
+        else:
+            stats_dict['nonsingletons']['bulk'].append(False)
+
+    stats_dict['progenitors']['plasmablast'].append(is_plasma)
+    stats_dict['progenitors']['bulk'].append(is_bulk)
 
 def create_stats_file(infile: str, outfile: str) -> None:
     """Obtains lineages from the file and obtains the statistics.
@@ -136,13 +169,20 @@ def create_stats_file(infile: str, outfile: str) -> None:
 
     file_name = infile.split("/")[-1]
     patient = file_name.split("_")[0]
-    lineages = merge_replicates(json_open(infile)['productive'], productive=True)
+    lineages = denest_lineages(json_open(infile)['productive'], productive=True)
     stats_dict = initialize_stats_dict()
 
     #  Loop over all lineages.
     for key in lineages:
        get_stats(stats_dict, lineages[key])
+
+    for _ in stats_dict['progenitors']['v gene']:
+        stats_dict['progenitors']['patient'].append(patient)
+    for _ in stats_dict['nonsingletons']['v gene']:
+        stats_dict['nonsingletons']['patient'].append(patient)
     json_save(outfile, stats_dict)
+    pd.DataFrame(stats_dict['progenitors']).to_csv(outfile.replace('.json', '_progenitor.csv'), index=False)
+    pd.DataFrame(stats_dict['nonsingletons']).to_csv(outfile.replace('.json', '_nonsingleton.csv'), index=False)
 
 def main():
     import argparse

@@ -32,7 +32,12 @@ import seaborn as sns
 from utils import *
 
 #  dictionary used when referencing times, severity, plotting binding, etc.
-CONST_DATA_DICT = get_bcell_info('/gscratch/stf/zachmon/covid/plasma_data/plasma_info.csv')
+#CONST_DATA_DICT = get_bcell_info('/gscratch/stf/zachmon/covid/plasma_data/plasma_info.csv')#total_bcell/old_total_b_cell_info.csv')
+CONST_DATA_DICT = get_bcell_info('/gscratch/stf/zachmon/covid/total_bcell/old_total_b_cell_info.csv')
+PLASMA_DATA_DICT = get_bcell_info('/gscratch/stf/zachmon/covid/plasma_data/plasma_info.csv')
+for key in PLASMA_DATA_DICT:
+    CONST_DATA_DICT[key] = PLASMA_DATA_DICT[key]
+#get_bcell_info('/gscratch/stf/zachmon/covid/plasma_data/plasma_info.csv')
 
 #  Set fonttypes so that Adobe Illustrator can be used to edit the final product.
 rcParams['pdf.fonttype'] = 42
@@ -40,17 +45,17 @@ rcParams['ps.fonttype'] = 42
 
 #  Set colorscheme for data.
 colors = {'Healthy':"#0072B2",
-          'Asymptomatic': "#CC79A7",
           'Mild': "#009E73",
           'Moderate':"#E69F00",
-          "Severe": "#D55E00"}
+          "Severe": "#D55E00",
+          'Asymptomatic': "#CC79A7"}
 
 #  Set lighter colors to distinguish from darker colors.
 lightercolors = {'Healthy': (144/255, 215/255, 255/255),
-                 'Asymptomatic': (255/255, 26/255, 255/255),
                  'Mild': (46/255, 255/255, 200/255),
                  'Moderate': (255/255, 212/255, 110/255),
-                 "Severe": (255/255, 138/255, 47/255)}
+                 "Severe": (255/255, 138/255, 47/255),
+                 'Asymptomatic': (255/255, 26/255, 255/255)}
 
 #  Function to round to n significant digits.
 round_to_n = lambda x, n: round(x, -int(floor(log10(x))) + (n - 1))
@@ -383,7 +388,7 @@ def cohort_bar(cohort_averages: dict, cohort_data: dict, observable: str,
 
     format_axes(ax, labelsize=labelsize, ticksize=ticksize, legendsize=legendsize)
 
-def get_stats(in_files, statstype='progenitors', geo=False, pseudocount=0) -> (dict, dict):
+def get_stats(in_files, rep_type='bulk', statstype='progenitors', geo=False, pseudocount=0) -> (dict, dict):
     """Obtains the statistics from each patient and puts them into their respective cohort and also obtains averaged cohort statistics.
 
     Parameters
@@ -415,7 +420,15 @@ def get_stats(in_files, statstype='progenitors', geo=False, pseudocount=0) -> (d
                                           'vd ins':{}, 'dj ins': {},
                                           'vd del':{}, 'dj del': {}}
         for observable in stats[patient]:
-            stats[patient][observable] = Counter(instats[observable])
+            try:
+                temp_list = [o for idx, o in enumerate(instats[observable])
+                             if instats[rep_type][idx]]
+                stats[patient][observable] = Counter(temp_list)
+            except:
+                stats[patient][observable] = Counter(instats[observable])
+        #  Leave out empty stats
+        if not list(stats[patient][observable].values()):
+            del stats[patient]
 
     #  Names of observables to access from statistics output.
     observables = ['v gene', 'j gene', 'cdr3 length', 'vd ins',
@@ -429,7 +442,7 @@ def get_stats(in_files, statstype='progenitors', geo=False, pseudocount=0) -> (d
         cohort_data[key] = {}
         cohort_averages[key] = {}
 
-    for patient in CONST_DATA_DICT:
+    for patient in stats:
         severity = CONST_DATA_DICT[patient]['severity']
         if str(severity) == 'nan':
             severity = 'Mild'
@@ -481,7 +494,7 @@ def get_stats(in_files, statstype='progenitors', geo=False, pseudocount=0) -> (d
                                                                        observable, indict=True, geo=False)
     return cohort_data, cohort_averages
 
-def perform_anova(cohort_data: dict, observable: str) -> None:
+def perform_anova(cohort_data: dict, observable: str, ax=None) -> None:
     """Creates box plots and performs ANOVA on the means of each individual's statistic.
 
     Parameters
@@ -521,17 +534,18 @@ def perform_anova(cohort_data: dict, observable: str) -> None:
               'p-value =',
               round_to_n(p_val, 3))
 
-    fig=plt.figure(dpi=300)
-    ax = fig.add_subplot(111)
+    if ax is None:
+        fig=plt.figure(dpi=300)
+        ax = fig.add_subplot(111)
 
     sns.set(context='paper', style='white')
     plt.rcParams.update({"xtick.bottom" : True, "ytick.left" : True})
-    ax = sns.boxplot(data=list(means.values()), width=.9, palette=colors.values())
+    ax = sns.boxplot(data=list(means.values()), width=.9, palette=colors.values(), ax=ax)
     sns.swarmplot(data=list(means.values()), size=6, edgecolor="black",
-                  linewidth=.9, palette=lightercolors.values())
+                  linewidth=.9, palette=lightercolors.values(), ax=ax)
     ax.set_xlabel('Cohort',fontname='Arial')
     ax.set_xticklabels(list(means.keys()), fontname='Arial')
-    ax.set_ylabel(ylabels[observable], fontname='Arial')
+    ax.set_ylabel('Mean ' + ylabels[observable], fontname='Arial')
     yticklabels = ax.get_yticks()
     ax.set_yticklabels(yticklabels, fontname='Arial')
     format_axes(ax, box=True)

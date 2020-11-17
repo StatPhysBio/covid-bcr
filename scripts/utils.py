@@ -236,7 +236,7 @@ def get_dirs(in_dir: str, keyphrase: str = '') -> list:
         List of dirs in a directory.
     """
 
-    dirs = [join(file_dir, d)
+    dirs = [join(in_dir, d)
              for d in listdir(in_dir)
              if isdir(join(in_dir, d))
              and ".DS_Store" not in d

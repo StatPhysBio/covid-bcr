@@ -17,7 +17,8 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-from abstar_pipeline import merge_replicates, get_lineage_progenitor
+from abstar_pipeline import (merge_replicates, get_lineage_progenitor,
+                             get_lineage_progenitor_cdr3, translate)
 from utils import *
 
 def assemble_fasta_for_igor(infiles: list, outfile: str) -> None:
@@ -43,6 +44,11 @@ def assemble_fasta_for_igor(infiles: list, outfile: str) -> None:
         patient = get_patient(lineages[list(lineages.keys())[0]][0]['seq_id'])
         for lin in lineages:
             lineage_progenitor = get_lineage_progenitor(lineages[lin])
+            lineage_progenitor_cdr3 = get_lineage_progenitor_cdr3(lineages[lin])
+            first_aa = translate(lineage_progenitor_cdr3[0:3])
+            last_aa = translate(lineage_progenitor_cdr3[-3:])
+            if first_aa != 'C' or last_aa != 'W':
+                continue
             sequences_for_igor.append(lineage_progenitor)
             header = "-".join(list(lin)+[patient])
             headers_for_igor.append(header)

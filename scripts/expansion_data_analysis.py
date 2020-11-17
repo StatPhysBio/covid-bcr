@@ -77,7 +77,7 @@ def get_counts_by_time_replicate(headers: list, headers_unique_counts: list,
     """
 
     count_dict = create_count_dict()
-    vprimers = [None]*len(headers_plasma_indistinct)
+    vprimers = []
 
     for ti in times:
         #  Instead of running a loop over all the data and obtaining
@@ -94,15 +94,15 @@ def get_counts_by_time_replicate(headers: list, headers_unique_counts: list,
         rep = get_replicate(u)
         if 'plasma' in u:
             count_dict['plasma_unique_merged'][(ti,rep)] += 1
-        elif 'monoclonal' in u:
+        elif 'rbd' in u or 'ntd' in u:
             continue
         else:
             count_dict['bulk_unique_merged'][(ti,rep)] += 1
 
     for i,u in enumerate(headers_plasma_indistinct):
-        vprimers[i] = get_vprimer(u)
-        if 'monoclonal' in u:
+        if 'rbd' in u or 'ntd' in u:
             continue
+        vprimers.append(get_vprimer(u))
         ti = get_time(u)
         rep = get_replicate(u)
         abundance = get_abundance(u)
@@ -383,11 +383,12 @@ def main():
     csv_dict = create_csv_for_analysis(lineages['productive'], productive=args.productive,
                                        mergedcdr3=args.mergedcdr3)
     pd.DataFrame(csv_dict).to_csv(args.outfile, index=False)
-
+    print('Created', args.outfile)
     #  Get counts for unproductive lineages.
     csv_dict = create_csv_for_analysis(lineages['unproductive'], productive=False,
                                        mergedcdr3=args.mergedcdr3)
     pd.DataFrame(csv_dict).to_csv(args.outfile.replace('.csv', '_unproductive.csv'), index=False)
+    print('Created',args.outfile.replace('.csv', '_unproductive.csv'))
 
 if __name__ == '__main__':
     main()

@@ -31,8 +31,8 @@
 #SBATCH --time=6:00:00
 
 IGOR14="/gscratch/stf/zachmon/software/igor_1-4-0_exec/igor"
-WDPATH=/gscratch/stf/zachmon/covid/total_bcell/igor_wd/19_08_IGoR/
-FASTA=/gscratch/stf/zachmon/covid/total_bcell/igor_input/abstar_all_individuals_most_common.fasta
+WDPATH=/gscratch/stf/zachmon/covid/total_bcell/igor_wd/15_10_IGoR/
+FASTA=/gscratch/stf/zachmon/covid/total_bcell/igor_input/igor_input_CW.fasta
 BATCHNAME=foo
 ABSTARV="/gscratch/stf/zachmon/covid/covid-bcr/igor_input/abstar_genomic_Vs_for_igor.fasta"
 ANCHORV="/gscratch/stf/zachmon/covid/covid-bcr/igor_input/igor_V_gene_CDR3_anchors.csv"
@@ -52,4 +52,4 @@ MYCOMMANDS="$MYCOMMANDS -set_genomic --J ${ABSTARJ} -set_CDR3_anchors --J ${ANCH
 MYCOMMANDS="$MYCOMMANDS -set_genomic --D ${ABSTARD}" #  Set d genes
 ${MYCOMMANDS} -batch ${BATCHNAME} -align --all #  Align
 ${MYCOMMANDS} -batch ${BATCHNAME} -infer --L_thresh "1e-300" --N_iter 10 #  Infer
-${MYCOMMANDS} -batch bar -generate 1000000 #  Generate
+#${MYCOMMANDS} -batch bar -generate 1000000 #  Generate

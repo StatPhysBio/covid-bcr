@@ -650,6 +650,8 @@ def get_lineage_progenitor_cdr3(lineage: list, nt: bool = True, junc: bool = Tru
 
     naive_cdr3s = []
     for annotation in lineage:
+        if 'rbd' in annotation['seq_id'] or 'ntd' in annotation['seq_id']:
+            continue
         naive_cdr3s.append(get_naive_cdr3(annotation, nt=nt, junc=junc))
     counter = sort_dict_by_value(Counter(naive_cdr3s))
     for key in counter:
@@ -666,6 +668,23 @@ def get_lineage_progenitor_cdr3(lineage: list, nt: bool = True, junc: bool = Tru
             else:
                 return key
     return ''
+
+def get_lineage_size(lineage: list):
+    """Returns the size of the lineage ignoring any single cells which clustered into it.
+
+    Parameters
+    ----------
+    lineage : list
+        List of annotations.
+    Returns
+    -------
+    int
+        Size of lineage disregarding any single cells which clustered.
+    """
+
+    return  sum([1 for a in lineage
+                if 'rbd' not in a['seq_id']
+                and 'ntd' not in a['seq_id']])
 
 def create_sonia_input(infile: str) -> pd.DataFrame:
     """Generates a csv of information about lineage progenitors to use as input for SONIA.
