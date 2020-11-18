@@ -24,6 +24,8 @@ from utils import *
 def assemble_fasta_for_igor(infiles: list, outfile: str) -> None:
     """Assembles all unproductive lineage progenitors into one FASTA for IGoR input.
 
+    CDR3s are constrained to begin with a C and end in a W.
+
     Parameters
     ----------
     infiles : list

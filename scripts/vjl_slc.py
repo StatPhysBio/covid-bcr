@@ -19,7 +19,7 @@
 
 from jellyfish import hamming_distance
 import numpy as np
-from scipy.cluster.hierarchy import linkage,fcluster,dendrogram
+from scipy.cluster.hierarchy import linkage, fcluster
 from scipy.spatial.distance import squareform
 
 def bin_vjl(annotations: list, partis: bool = False, abstar: bool = True) -> dict:
@@ -78,10 +78,9 @@ def ham_dist_vectorform(strings: list) -> np.array:
     """Constructs the Hamming distance vector-form for a VJL grouping used for clustering.
 
     This function takes in a set of strings, the observed CDR3s in a VJL grouping,
-    and computes upper triangle of the Hamming (normalized by length) square matrix.
+    and computes the upper triangle of the Hamming (normalized by length) square matrix.
     This vector-form is what is used as input for the single-linkage clustering
-    algorithm given by scipy. Additionally, using this in tandem with np.float16
-    decreases the memory usage substantially.
+    algorithm given by scipy.
 
     Parameters
     ----------
@@ -90,7 +89,7 @@ def ham_dist_vectorform(strings: list) -> np.array:
     Returns
     -------
     dists : np.array
-        Vector-form of normalized Hamming distances given by np.float16 precision.
+        Vector-form of normalized Hamming distances with np.float16 precision.
     """
 
     normalization = len(strings[0])
@@ -108,7 +107,7 @@ def get_minimum_distances(vectorform: np.array) -> np.array:
     """Returns the minimum pairwise Hamming distances, useful for determing a clustering threshold.
 
     Converts the vector-form distances (upper-triangle of the Hamming distance matrix)
-    to a square matrix and obtains the minimums in each column.
+    to a square matrix and obtains the minima in each column.
 
     Parameters
     ----------
@@ -139,14 +138,14 @@ def slc_dist_input(vectorform: np.array, threshold: float) -> (np.array, np.arra
     -------
     links : np.ndarray
         The hierarchical clustering encoded as a linkage matrix. Though not used
-        in this analysis, this is included because it is used to illustrate
+        in this analysis, this is included because it can illustrate
         the clusterings using dendrograms.
     cluster : np.ndarray
         An array which specifies what string goes into which cluster.
     """
 
     # Make links according to the minimum distances.
-    links=linkage(vectorform, method='single')
+    links = linkage(vectorform, method='single')
     #  Cluster using the given threshold.
     clusters = fcluster(links, threshold, criterion='distance')
     return links, clusters
@@ -193,9 +192,10 @@ def slc_vjl_bin(vjl_bin: list, partis: bool = False, abstar: bool = True,
                 cdr3 = ann['junc_nt']
             else:
                 cdr3 = translate(ann['junc_nt'])
-            if cdr3 not in annotations_map:
-                annotations_map[cdr3] = []
-            annotations_map[cdr3].append(ann)
+            try:
+                annotations_map[cdr3].append(ann)
+            except:
+                annotations_map[cdr3] = [ann]
     else:
         print("Need an option for the annotation input!")
 

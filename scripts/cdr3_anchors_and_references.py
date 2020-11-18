@@ -52,7 +52,7 @@ def get_v_gaps(header: str) -> int:
     """
 
     col = header[12]
-    return int(col[col.find('+')+1:col.find('=')])
+    return int(col[col.find('+') + 1:col.find('=')])
 
 def get_v_anchor(gaps: int) -> str:
     """Returns V gene CDR3 anchor position.
@@ -68,7 +68,7 @@ def get_v_anchor(gaps: int) -> str:
         V gene CDR3 anchor position.
     """
 
-    return str(3*(104-1) - gaps)
+    return str(3 * (104 - 1) - gaps)
 
 def get_j_gaps(header: str) -> int:
     """Returns number of gaps in header of IMGT gapped J gene FASTA.
@@ -85,7 +85,7 @@ def get_j_gaps(header: str) -> int:
     """
 
     col = header[12]
-    gaps = int(col.split("+")[0])
+    gaps = int(col.split('+')[0])
     return gaps
 
 def get_j_anchor(gaps: int) -> str:
@@ -148,7 +148,7 @@ def trim_dict(gene_dict: dict) -> dict:
         for idx, allele in enumerate(gene_dict[gene]):
             if idx > 1:
                 break
-            out_dict[gene + "*" + allele] = gene_dict[gene][allele]
+            out_dict[gene + '*' + allele] = gene_dict[gene][allele]
     return out_dict
 
 def get_gene_dict(gapped_fasta: str, gene: str = 'V') -> dict:
@@ -180,11 +180,11 @@ def get_gene_dict(gapped_fasta: str, gene: str = 'V') -> dict:
     with open(gapped_fasta) as infile:
         for line in infile:
             if ">" in line:
-                line = line.split("|")
-                gene = line[1].split("*")[0]
+                line = line.split('|')
+                gene = line[1].split('*')[0]
                 if gene not in gene_dict:
                     gene_dict[gene] = {}
-                allele = line[1].split("*")[-1]
+                allele = line[1].split('*')[-1]
                 gaps = gap_func(line)
                 gene_dict[gene][allele] = {'gaps':anchor_func(gaps),
                                            'func':get_function(line)}

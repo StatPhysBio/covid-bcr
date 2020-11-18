@@ -395,7 +395,7 @@ def annotations_pipeline(infile: str) -> dict:
 
     return annotations
 
-def make_lineages(infile: str, monoclonal: bool = False) -> dict:
+def make_lineages(infile: str) -> dict:
     """Loads annotations file and creates lineages by performing SLC on VJL bins.
 
     Parameters
@@ -410,11 +410,7 @@ def make_lineages(infile: str, monoclonal: bool = False) -> dict:
     """
 
     annotations = json_open(infile)
-    monoclonal_anns = []
-    if monoclonal:
-        monoclonal_anns = json_open('/gscratch/stf/zachmon/covid/monoclonal_anns.json')
-    print(len(monoclonal_anns))
-    productive_lineages = vjl_slc(annotations['productive'] + monoclonal_anns, abstar=True)
+    productive_lineages = vjl_slc(annotations['productive'], abstar=True)
     unproductive_lineages = vjl_slc(annotations['unproductive'], abstar=True)
     lineages = {'productive': productive_lineages,
                 'unproductive': unproductive_lineages}
@@ -480,6 +476,10 @@ def merge_replicates_within_lineage(lineage: list, plasma_distinct: bool = True)
     ----------
     lineage : list
         List of annotations.
+    plasma_distinct : bool, optional
+        If True, treats plasma sequences/reads as separate from bulk sequences/reads,
+        otherwise merges them. Set to False for obtaining unique counts which treat
+        plasma reads as bulk reads.
 
     Returns
     -------
@@ -535,7 +535,8 @@ def merge_replicates_within_lineage(lineage: list, plasma_distinct: bool = True)
             condensed_lineage.append(replicate_dict[key][0])
     return condensed_lineage
 
-def merge_replicates(lineages: dict, productive: bool = True, plasma_distinct: bool = True) -> dict:
+def merge_replicates(lineages: dict, productive: bool = True,
+                     plasma_distinct: bool = True) -> dict:
     """Apply replicate merging to each lineage.
 
     Parameters
@@ -545,6 +546,10 @@ def merge_replicates(lineages: dict, productive: bool = True, plasma_distinct: b
     productive : bool, optional
         Bool to specify whether to keep lineages with unproductive progenitors.
         Note: productive lineages can have unproductive progenitors due to uncertainty.
+    plasma_distinct : bool, optional
+        If True, treats plasma sequences/reads as separate from bulk sequences/reads,
+        otherwise merges them. Set to False for obtaining unique counts which treat
+        plasma reads as bulk reads.
 
     Returns
     -------
@@ -558,7 +563,8 @@ def merge_replicates(lineages: dict, productive: bool = True, plasma_distinct: b
             for j in lineages[v]:
                 for l in lineages[v][j]:
                     for cluster_id in lineages[v][j][l]:
-                        merged_lineage = merge_replicates_within_lineage(lineages[v][j][l][cluster_id], plasma_distinct=plasma_distinct)
+                        merged_lineage = merge_replicates_within_lineage(lineages[v][j][l][cluster_id],
+                                                                         plasma_distinct=plasma_distinct)
                         if get_lineage_progenitor_cdr3(merged_lineage) == '':
                             continue
                         condensed_lineages[(v,j,l,cluster_id)] = merged_lineage
@@ -567,7 +573,8 @@ def merge_replicates(lineages: dict, productive: bool = True, plasma_distinct: b
             for j in lineages[v]:
                 for l in lineages[v][j]:
                     for cluster_id in lineages[v][j][l]:
-                        condensed_lineages[(v,j,l,cluster_id)] = merge_replicates_within_lineage(lineages[v][j][l][cluster_id], plasma_distinct=plasma_distinct)
+                        condensed_lineages[(v,j,l,cluster_id)] = merge_replicates_within_lineage(lineages[v][j][l][cluster_id],
+                                                                                                 plasma_distinct=plasma_distinct)
     return condensed_lineages
 
 def denest_lineages(lineages: dict, productive: bool = True) -> dict:
@@ -650,6 +657,7 @@ def get_lineage_progenitor_cdr3(lineage: list, nt: bool = True, junc: bool = Tru
 
     naive_cdr3s = []
     for annotation in lineage:
+        #  Ignore clusted single cells.
         if 'rbd' in annotation['seq_id'] or 'ntd' in annotation['seq_id']:
             continue
         naive_cdr3s.append(get_naive_cdr3(annotation, nt=nt, junc=junc))
@@ -676,6 +684,7 @@ def get_lineage_size(lineage: list):
     ----------
     lineage : list
         List of annotations.
+
     Returns
     -------
     int
@@ -693,7 +702,7 @@ def create_sonia_input(infile: str) -> pd.DataFrame:
     unique sequences are used at each timepoint when determining the most common
     naive CDR3. Once the most common CDR3 is obtained, it's inspected
     to ensure it either doesn't contain any stop codons and that is begins
-    with a cysteine (C) and ends in a tryptophan (W) or phenylalanine (F).
+    with a cysteine (C) and ends in a tryptophan (W).
     SONIA works on naive productive sequences only and the invariant residues
     are necessary due to SONIA's preinstalled CDR3 anchors. Finally, only
     unique nucleotide rearrangements are kept. (I.e. multiple combinations
@@ -723,8 +732,7 @@ def create_sonia_input(infile: str) -> pd.DataFrame:
         if len(progenitor_cdr3) == 0:
             continue
         progenitor_cdr3_aa = translate(progenitor_cdr3)
-        if ((progenitor_cdr3_aa[0] == 'C')
-           and (progenitor_cdr3_aa[-1] == 'W' or progenitor_cdr3_aa[-1] == 'F')):
+        if ((progenitor_cdr3_aa[0] == 'C') and (progenitor_cdr3_aa[-1] == 'W')):
             lineage_length = sum([1 for a in lineages[key]
                                   if 'rbd' not in a['seq_id']
                                   and 'ntd' not in a['seq_id']])
@@ -763,20 +771,17 @@ def main():
                         metavar=('PATH/TO/FOLDER/FILE', 'PATH/TO/OUTFILE'),
                         help='path to lineages file (.json), '
                         'path for SONIA input (.csv)')
-    parser.add_argument('--monoclonal', action='store_true',
-                        help='cluster monoclonal Abs with repertoire data')
     args = parser.parse_args()
 
     if args.annotations_input is not None:
         annotations = annotations_pipeline(args.annotations_input[0])
         json_save(args.annotations_input[1], annotations)
     if args.lineages_input is not None:
-        lineages = make_lineages(args.lineages_input[0], monoclonal=args.monoclonal)
+        lineages = make_lineages(args.lineages_input[0])
         json_save(args.lineages_input[1], lineages)
     if args.sonia_input is not None:
         df_sonia = create_sonia_input(args.sonia_input[0])
         df_sonia.to_csv(args.sonia_input[1], index=False)
 
-if __name__=='__main__':
+if __name__ == '__main__':
     main()
-

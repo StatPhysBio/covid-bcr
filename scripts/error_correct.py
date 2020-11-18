@@ -462,7 +462,7 @@ def main():
                                                      delta_r=delta_r,
                                                      delta_a=delta_a)
             if this_pass == args.passes - 1:
-                marginal_headers += marginal_output[0]
+                marginal_headers = marginal_output[0]
             total_output = error_correct_total(marginal_output[0],
                                                marginal_output[1],
                                                d_thresh=d_thresh,

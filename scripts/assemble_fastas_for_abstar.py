@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Script to combine all samples for a patient into one FASTA file with annotated times, severitie, replicates, and patient ID.
+"""Script to combine all samples for a patient into one FASTA file with annotated times, severities, replicates, and patient ID.
     Copyright (C) 2020 Montague, Zachary
 
     This program is free software: you can redistribute it and/or modify
@@ -31,6 +31,8 @@ def annotate_fasta(fasta: str, singletons: bool = True, plasma: bool = False) ->
         Path to FASTA.
     singletons : bool, optional
         Specifies whether or not to keep singletons.
+    plasma: bool, optional
+        Specifies if sequence is from plasma repertoire.
 
     Returns
     -------
@@ -129,6 +131,8 @@ def assemble_combined_fasta(savename: str, sample_files: list, plasma: bool = Fa
         Path and name of FASTA file to save.
     sample_files : list
         List of samples files to annotate and write to a single FASTA file.
+    plasma: bool, optional
+        Specifies if sequence is from plasma repertoire.
 
     Returns
     -------

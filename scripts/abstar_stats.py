@@ -108,6 +108,7 @@ def get_stats(stats_dict: dict, lineage: list) -> None:
     lineage_plasma_indistinct = merge_replicates_within_lineage(lineage, plasma_distinct=False)
 
     progenitor_cdr3 = get_lineage_progenitor_cdr3(lineage_unique_counts)
+    #  Look at only productive lineages with size at least 3.
     if progenitor_cdr3 == '' or get_lineage_size(lineage_plasma_indistinct) < 3:
         return
 
@@ -125,12 +126,14 @@ def get_stats(stats_dict: dict, lineage: list) -> None:
             fill_dict(stats_dict['progenitors'], annotation)
             progenitor_stats_recorded = True
 
+        #  A plasma lineage is defined as having at least 1 plasma member.
         if 'plasma' in annotation['seq_id']:
             is_plasma = True
         if ('plasma' not in annotation['seq_id']
             and 'rbd' not in annotation['seq_id']
             and 'ntd' not in annotation['seq_id']):
             bulk_count += 1
+        #  Bulk lineages are defined as having at least 3 bulk members.
         if bulk_count > 2:
             is_bulk = True
         #  Get statistics for nonsingletons only.

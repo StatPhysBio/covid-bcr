@@ -126,10 +126,10 @@ def csv_to_dict(in_csv_file: str) -> dict:
 
     csv_dict = {}
 
-    with open(in_csv_file, newline='',encoding='utf-8-sig') as csvfile:
+    with open(in_csv_file, newline='', encoding='utf-8-sig') as csvfile:
         reader = csv.DictReader(csvfile)
         for index,ordered_dict in enumerate(reader):
-            if list(ordered_dict.values())==['']*len(ordered_dict):
+            if list(ordered_dict.values()) == [''] * len(ordered_dict):
                 break
             for key in ordered_dict.keys():
                 if index == 0:
@@ -215,7 +215,7 @@ def get_files(in_dir: str, keyphrase: str = '') -> list:
     files = [join(in_dir, f)
              for f in listdir(in_dir)
              if isfile(join(in_dir, f))
-             and ".DS_Store" not in f
+             and '.DS_Store' not in f
              and keyphrase in f]
     files.sort()
     return files
@@ -239,7 +239,7 @@ def get_dirs(in_dir: str, keyphrase: str = '') -> list:
     dirs = [join(in_dir, d)
              for d in listdir(in_dir)
              if isdir(join(in_dir, d))
-             and ".DS_Store" not in d
+             and '.DS_Store' not in d
              and keyphrase in d]
     dirs.sort()
     return dirs

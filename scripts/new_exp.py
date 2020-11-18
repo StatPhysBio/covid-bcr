@@ -24,7 +24,6 @@ import sys
 from abstar_pipeline import (denest_lineages, merge_replicates_within_lineage,
                              get_lineage_progenitor_cdr3, translate)
 from utils import *
-from vjl_slc import ham_dist_vectorform, get_minimum_distances
 
 def create_count_dict() -> dict:
     """Creates dictionary that is used to store counts.
@@ -51,7 +50,7 @@ def create_count_dict() -> dict:
     return count_dict
 
 def get_counts_by_time_replicate(headers: list, headers_unique_counts: list,
-                                 headers_plasma_indistinct: list, times: list, replicates: list) -> dict:
+                                 headers_plasma_indistinct: list, times_and_replicates: list) -> dict:
     """Obtains unique, abundance, and singleton counts per replicate and time in a lineage.
 
     Parameters
@@ -63,10 +62,9 @@ def get_counts_by_time_replicate(headers: list, headers_unique_counts: list,
     headers_plasma_indistinct : list
         List of sequence information after replicate merging with plasma
         sequences can merge with bulk sequences.
-    times : list
-        List of times at which sequences in the lineage could have existed.
-    replicates : list
-        List of replicates in which sequences in the lineage could have existed.
+    times_and_replicates : list
+        List of combinations of times and replicates at which sequences in the
+        lineage could have existed.
 
     Returns
     -------
@@ -82,25 +80,21 @@ def get_counts_by_time_replicate(headers: list, headers_unique_counts: list,
     count_dict = create_count_dict()
     vprimers = []
 
-    for ti in times:
-        #  Instead of running a loop over all the data and obtaining
-        #  the replicates, we will put 0's for all possible replicates.
-        #  The replicates which don't exist will be removed quickly in get_counts.
-        for r in replicates:
-            for count_type in count_dict:
-                count_dict[count_type][(ti,r)] = 0
-                if 'seqs' in count_type:
-                    count_dict[count_type][(ti,r)] = []
+    for ti_rep in times_and_replicates:
+        for count_type in count_dict:
+            count_dict[count_type][] = 0
+            if 'seqs' in count_type:
+                count_dict[count_type][(ti,r)] = []
 
     for i,u in enumerate(headers_unique_counts):
         ti = get_time(u)
         rep = get_replicate(u)
         if 'plasma' in u:
-            count_dict['plasma_unique_merged'][(ti,rep)] += 1
+            count_dict['plasma_unique_merged'][(ti, rep)] += 1
         elif 'rbd' in u or 'ntd' in u:
             continue
         else:
-            count_dict['bulk_unique_merged'][(ti,rep)] += 1
+            count_dict['bulk_unique_merged'][(ti, rep)] += 1
 
     for i,u in enumerate(headers_plasma_indistinct):
         if 'rbd' in u or 'ntd' in u:
@@ -140,15 +134,6 @@ def get_counts_by_time_replicate(headers: list, headers_unique_counts: list,
 
     return count_dict,lineage_primer
 
-def aa_clustering(lineage):
-    cdr3s = [translate(ann['junc_nt']) for ann in lineage]
-    if len(cdr3s) == 0:
-        return np.inf
-    vectorform = ham_dist_vectorform(cdr3s)
-    min_distances = get_minimum_distances(vectorform)
-    max_min_distance = np.max(min_distances)
-    return max_min_distance
-
 def get_counts(in_lineages: dict, productive: bool = True,
                replicate: bool = False, abstar: bool = True, mergedcdr3=False) -> pd.DataFrame:
     """Obtains unique, abundance, and singleton counts per time (and time) for all lineages.
@@ -177,15 +162,11 @@ def get_counts(in_lineages: dict, productive: bool = True,
     lineages = denest_lineages(in_lineages, productive=productive)
     patient_key = get_patient(lineages[list(lineages.keys())[0]][0]['seq_id'])
 
-    replicates = []
-    times = []
+    times_and_replicates = []
     for key in lineages:
-        times += [get_time(ann['seq_id']) for ann in lineages[key]]
-        replicates += [get_replicate(ann['seq_id']) for ann in lineages[key]]
-    replicates = list(set(replicates))
-    times = list(set(times))
-    print(replicates)
-    print(times)
+        times_and_replicates += [(get_time(ann['seq_id']), get_replicate(ann['seq_id']))
+                                 for annotation in lineages[key]]
+    print(times_and_replicates)
 
     for key in lineages:
         lineage = lineages[key]
@@ -205,8 +186,7 @@ def get_counts(in_lineages: dict, productive: bool = True,
             progenitor_cdr3 = translate(progenitor_cdr3_nt)
 
         cdr3_list = [observed_cdr3_nt, observed_cdr3_aa,progenitor_cdr3_nt, progenitor_cdr3]
-        #aa_min_max_d = aa_clustering(lineage_unique_counts)
-        dict_key = tuple(list(key) + cdr3_list)# + [aa_min_max_d])
+        dict_key = tuple(list(key) + cdr3_list)
 
         #  Annotations come from abstar.
         if abstar:
@@ -256,7 +236,6 @@ def get_counts(in_lineages: dict, productive: bool = True,
                                                                       'level_6': 'observed_cdr3',
                                                                       'level_7': 'progenitor_cdr3_nt',
                                                                       'level_8': 'progenitor_cdr3'})
-                                                                      #'level_9': 'aa_max_min_d'})
     return df_counts
 
 def get_columns_with_ints(df: pd.DataFrame) -> list:
@@ -354,9 +333,6 @@ def create_csv_for_analysis(lineages: dict, productive: bool = True,
             csv_dict['combined_unique_merged'].append(df_counts['combined_unique_merged'].iloc[i][ti])
             csv_dict['combined_singleton'].append(df_counts['combined_singleton'].iloc[i][ti])
     return csv_dict
-
-#  TODO: Finish Fisher exact test implementation here.
-#        R implementation in notebook.
 
 def main():
     import argparse
