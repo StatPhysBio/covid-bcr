@@ -415,7 +415,7 @@ def get_stats(in_files, rep_type='bulk', statstype='progenitors', geo=False, pse
     stats = {}
     for f in in_files:
         instats = json_open(f)[statstype]
-        patient = f.split("/")[-1].split("_")[0]
+        patient = instats['patient'][0]
         stats[patient] = {'v gene':{}, 'j gene':{}, 'cdr3 length': {},
                                           'vd ins':{}, 'dj ins': {},
                                           'vd del':{}, 'dj del': {}}

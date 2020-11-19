@@ -171,8 +171,8 @@ def create_stats_file(infile: str, outfile: str) -> None:
     """
 
     file_name = infile.split("/")[-1]
-    patient = file_name.split("_")[0]
     lineages = denest_lineages(json_open(infile)['productive'], productive=True)
+    patient = get_patient(lineages[list(lineages.keys())[0]][0]['seq_id'])
     stats_dict = initialize_stats_dict()
 
     #  Loop over all lineages.

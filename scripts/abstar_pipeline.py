@@ -179,7 +179,7 @@ def has_shm_indels(annotation: dict) -> bool:
     """
 
     return ((annotation['vdj_nt'] != annotation['gapped_vdj_nt'])
-       or (annotation['vdj_germ_nt'] != annotation['gapped_vdj_germ_nt']))
+            or (annotation['vdj_germ_nt'] != annotation['gapped_vdj_germ_nt']))
 
 def cdr3_position(annotation: dict, junc: bool = False) -> tuple:
     """Determines if reported CDR3 is present in the alignment and returns position if so.
@@ -370,7 +370,6 @@ def annotations_pipeline(infile: str) -> dict:
     None
     """
 
-    patient = infile.split('/')[-1].split('.')[0]
     annotations = load_abstar(infile)
     for key in annotations:
         abun = sum([get_abundance(annotations[key][seq_key]['seq_id'])
@@ -396,7 +395,7 @@ def annotations_pipeline(infile: str) -> dict:
     return annotations
 
 def make_lineages(infile: str) -> dict:
-    """Loads annotations file and creates lineages by performing SLC on VJL bins.
+    """Loads annotations file and creates lineages by performing SLC on VJL binned annotations.
 
     Parameters
     ----------
@@ -499,8 +498,8 @@ def merge_replicates_within_lineage(lineage: list, plasma_distinct: bool = True)
         sequence = annotation['raw_input']
         time = get_time(annotation['seq_id'])
         is_plasma = is_plasma_func(annotation['seq_id'])
-        is_rbd = ('monoclonal_rbd' in annotation['seq_id'])
-        is_ntd = ('monoclonal_ntd' in annotation['seq_id'])
+        is_rbd = ('rbd' in annotation['seq_id'])
+        is_ntd = ('ntd' in annotation['seq_id'])
         replicate_key = (sequence, time, is_plasma, is_rbd, is_ntd)
         try:
             replicate_dict[replicate_key].append(annotation)
@@ -662,19 +661,19 @@ def get_lineage_progenitor_cdr3(lineage: list, nt: bool = True, junc: bool = Tru
             continue
         naive_cdr3s.append(get_naive_cdr3(annotation, nt=nt, junc=junc))
     counter = sort_dict_by_value(Counter(naive_cdr3s))
-    for key in counter:
-        if key is None:
+    for naive_cdr3 in counter:
+        if naive_cdr3 is None:
             return ''
         if nt:
-            if '*' in translate(key):
+            if '*' in translate(naive_cdr3):
                 continue
             else:
-                return key
+                return naive_cdr3
         else:
-            if '*' in key:
+            if '*' in naive_cdr3:
                 continue
             else:
-                return key
+                return naive_cdr3
     return ''
 
 def get_lineage_size(lineage: list):
@@ -722,8 +721,12 @@ def create_sonia_input(infile: str) -> pd.DataFrame:
 
     in_lineages = json_open(infile)['productive']
     lineages = merge_replicates(in_lineages, plasma_distinct=False)
+    patient = get_patient(lineages[list(lineages.keys())[0]][0]['seq_id'])
+
     sonia_input = []
-    patient = infile.split('/')[-1].split('_')[0]
+
+    columns = ['progenitor_cdr3', 'v_gene', 'j_gene',
+               'lineage_size', 'patient', 'nt_cdr3']
 
     for index,key in enumerate(lineages):
         progenitor_cdr3 = get_lineage_progenitor_cdr3(lineages[key])
@@ -738,9 +741,8 @@ def create_sonia_input(infile: str) -> pd.DataFrame:
                                   and 'ntd' not in a['seq_id']])
             sonia_input.append((progenitor_cdr3_aa, key[0], key[1],
                                 lineage_length, patient, progenitor_cdr3))
-    df_sonia = pd.DataFrame(sonia_input, columns=['progenitor_cdr3', 'v_gene',
-                                              'j_gene', 'lineage_size',
-                                              'patient', 'nt_cdr3'])
+    df_sonia = pd.DataFrame(sonia_input, columns=columns)
+
     #  Sort by lineage size so smaller duplicate nucleotide recombination
     #  events get removed.
     df_sonia = df_sonia.sort_values(by=['lineage_size'],ascending=False)
