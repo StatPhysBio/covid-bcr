@@ -1,6 +1,6 @@
 # About
-This repository is used to conduct the analysis for "Dynamics of B-cell repertoires and emergence of cross-reactive responses in COVID-19 patients with different disease severity"
-It investigates receptor compostions depending on disease severity, expansion of BCR clonal lineages over time, sharing of BCRs among individuals, and the emergence of cross-reactivity from a SARS-CoV-2 response to a SARS response.
+This repository is used to conduct the analysis for "Dynamics of B-cell repertoires and emergence of cross-reactive responses in COVID-19 patients with different disease severity."
+It investigates receptor compositions depending on disease severity, expansion of BCR clonal lineages over time, sharing of BCRs among individuals, and the emergence of cross-reactivity from a SARS-CoV-2 response to a SARS response.
 
 ## Dependencies
 
@@ -38,10 +38,11 @@ Use `scripts/assemble_fastas_for_abstar.py` to annotate replicate, timepoint, se
 This script takes in the directories where the data is stored and a directory to which the combined FASTAs will be saved.
 
 ```bash
-python assemble_fastas_for_abstar.py --dirs dir1 dir2 dir3 --save_dir annotated_fastas_dir
+python assemble_fastas_for_abstar.py --dirs /PATH/TO/DIR1 /PATH/TO/DIR2 /PATH/TO/DIR3 \
+                                     --save_dir /PATH/TO/SAVE/DIR
 ```
 
-The output FASTAs will be called PATIENTID.fasta, where PATIENTID is an integer <img src="https://render.githubusercontent.com/render/math?math=\large z \in [1,19]">.
+The output FASTAs will be called PATIENTID.fasta, where PATIENTID is an integer.
 
 ### Annotating sequences
 
@@ -91,10 +92,10 @@ python assemble_fasta_for_igor.py --infiles PATH/TO/LINEAGES/* --outfile PATH/TO
 
 ### Prepare input for expansion analysis
 
-Use `scripts/expansion_data_analysis.py` to create the .csv file used as input for the expansion analysis.
+Use `scripts/wrangle_lineages.py` to create the .csv file used as input for the expansion analysis.
 
 ```bash
-python expansion_data_analysis.py --lineages PATH/TO/LINEAGE_FILE.json --outfile PATH/TO/SAVE/LINEAGE_COUNTS.csv
+python wrangle_lineages.py --lineages PATH/TO/LINEAGE_FILE.json --outfile PATH/TO/SAVE/LINEAGE_COUNTS.csv
 ```
 
 ### Obtain HCDR3 anchors and genomic references
@@ -157,7 +158,7 @@ sonia-evaluate --set_custom_model_VDJ PATH/TO/SONIA_MODEL --sonia_model leftrigh
 
 ### Differential sequence features
 
-Use `scripts/abstar_stats.py` to obtain statistics of gene usage, HCDR3 length, and insertion and deletion profiles of nonsingletons and progenitors in productive lineages with at least three unique sequences across all timepoints.
+Use `scripts/abstar_stats.py` to obtain statistics of gene usage, HCDR3 length, and insertion and deletion profiles of nonsingletons and progenitors in productive lineages.
 
 ```bash
 python abstar_stats.py --infile PATH/TO/LINEAGES.json --outfile PATH/TO/SAVE/STATISTICS.json
@@ -165,15 +166,9 @@ python abstar_stats.py --infile PATH/TO/LINEAGES.json --outfile PATH/TO/SAVE/STA
 
 For plotting these statistics and performing ANOVA (with boxplot visualizations), see `notebooks/sequence_features_plotting.ipynb`. Methods to aid in plotting and performing statistical tests are in `scripts/plotting_helper.py`.
 
-### Expansion analysis and overlap with known Abs
+### Expansion analysis, sharing analysis, and overlap with known Abs
 
-See `notebooks/expansion_and_overlap_analysis.ipynb`.
-
-### Sharing analysis
-
-<img src="https://render.githubusercontent.com/render/math?math=\large P_{post}"> is obtained from evaluating data sequences using inferred SONIA models.
-See `sequence_features_plotting.ipynb`.
-See Methods in [Montague et al., Dynamics of B-cell repertoires and emergence of cross-reactive responses in COVID-19 patients with different disease severity]() for calculating the null hypothesis for <img src="https://render.githubusercontent.com/render/math?math=\large P_{share}">.
+See `notebooks/R_expansion_analysis.ipynb` for the false positive rate analysis. Otherwise, all analyses are conducted in `notebooks/covid_dynamics.ipynb`
 
 ## References
 
