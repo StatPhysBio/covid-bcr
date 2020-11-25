@@ -168,7 +168,7 @@ For plotting these statistics and performing ANOVA (with boxplot visualizations)
 
 ### Expansion analysis, sharing analysis, and overlap with known Abs
 
-See `notebooks/R_expansion_analysis.ipynb` for the false positive rate analysis. Otherwise, all analyses are conducted in `notebooks/covid_dynamics.ipynb`
+See `notebooks/R_expansion_analysis.ipynb` for the false positive rate analysis. See `notebooks/sharing_null_hypothesis_bounds.nb` for obtaining bounds for sharing analysis. Otherwise, all analyses are conducted in `notebooks/covid_dynamics.ipynb`
 
 ## References
 
