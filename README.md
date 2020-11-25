@@ -39,10 +39,11 @@ This script takes in the directories where the data is stored and a directory to
 
 ```bash
 python assemble_fastas_for_abstar.py --dirs /PATH/TO/DIR1 /PATH/TO/DIR2 /PATH/TO/DIR3 \
-                                     --save_dir /PATH/TO/SAVE/DIR
+                                     --save_dir /PATH/TO/SAVE/DIR \
+                                     --bcellinfo /PATH/TO/INFO.csv
 ```
 
-The output FASTAs will be called PATIENTID.fasta, where PATIENTID is an integer.
+The output FASTAs will be called PATIENTID.fasta, where PATIENTID is an integer. B cell info files are found in the `csvs` directory: `csvs/plasma_b_cell_info.csv` and `csvs/bulk_b_cell_info.csv`. These files are used to mark from which patient the sample came. If fastas are from plasma repertoires, toggle `--plasma`.
 
 ### Annotating sequences
 
