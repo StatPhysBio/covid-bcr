@@ -171,6 +171,36 @@ For plotting these statistics and performing ANOVA (with boxplot visualizations)
 
 See `notebooks/R_expansion_analysis.ipynb` for the false positive rate analysis. See `notebooks/sharing_null_hypothesis_bounds.nb` for obtaining bounds for sharing analysis. Otherwise, all analyses are conducted in `notebooks/covid_dynamics.ipynb`
 
+
+## Extra healthy patients
+Because we have only three healthy individuals, we supplement our healthy dataset using the [Great Repertoire Project](https://github.com/briney/grp_paper). Obtain the processed  .json files from their associated locations using `wget`, e.g. 
+
+```bash
+wget http://burtonlab.s3.amazonaws.com/sequencing-data/hiseq_2016-supplement/316188_HNCHNBCXY_consensus_UID18-cdr3nt-90_json_071817.tar.gz
+```
+
+These are big files, so we resort to shell scripting to wrangle the files a bit. We use only the first three biological replicates. Uncompressing a tarball file can be done using only one core; however, you can use multiple cores to uncompress multiple tarball files. For example,
+
+```bash
+for i in {1..3}; do srun -n 1 -c 1 tar -xf 316188_HNCHNBCXY_consensus_UID18-cdr3nt-90_json_071817.tar.gz consensus-cdr3nt-90_json/${i}_consensus.json & done
+```
+
+Because our analysis uses only IgG B cells, we select from the uncompressed tarballs only those B cells.
+
+```bash
+grep -h "IgG" 1_consensus.json 2_consensus.json 3_consensus.json > 316188_IgG.json
+```
+
+Further, we separate out the productive sequences and out-of-frame sequences.
+
+```bash
+grep '"prod": "yes", "junction_in_frame": "yes"' 316188_IgG.json > productive_316188_IgG.json
+grep '"junction_in_frame": "no"' 316188_IgG.json > unproductive_316188_IgG.json
+```
+
+Finally, we use load the files and remove any sequences with N's or sequences missing D genes, create lineages, and obtain their statistics and wrangle the lineages for further processing.
+
+
 ## References
 
 1. Montague et al., Dynamics of B-cell repertoires and emergence of cross-reactive responses in COVID-19 patients with different disease severity, (2020)
