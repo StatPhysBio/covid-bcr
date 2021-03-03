@@ -66,6 +66,78 @@ def translate(sequence:str) -> str:
                 protein += table[codon]
     return protein
 
+def filter_abstar(abstar_file: str, outfile: str) -> list:
+    """Loads and performs preliminary filtering on abstar output.
+
+    Some json dictionaries from abstar output may be corrupted and therefore
+    difficult to load. The abstar file is read dictionary-by-dictionary
+    instead of all at once. Annotations which are not heavy chain,
+    missing CDR3 when aligned, or contain an N in the input sequence
+    are skipped. All passed sequences are saved to a list.
+
+    Parameters
+    ----------
+    abstar_file : str
+        Path to abstar .json output.
+
+    Returns
+    -------
+    annotations : list
+        List of filtered annotations.
+    """
+
+    num_N = 0
+    len_fail = 0
+    d_fail = 0
+    cdr3_fail = 0
+    passed = 0
+    annotations = []
+
+    for line in open(abstar_file, 'r'):
+        #  Some abstar annotations are blank. Skip these.
+        if len(line) < 10:
+            len_fail += 1
+            continue
+        #  Abstar may annotate some sequences as being
+        #  kappa or lambda chains. We want heavy chain.
+        if 'd_gene' not in line:
+            d_fail += 1
+            continue
+        data_dict = json.loads(line)
+        #  If the annotation has no CDR3 sequence,
+        #  it's not of much use to us.
+        if 'cdr3_nt' not in data_dict:
+            cdr3_fail += 1
+            continue
+        #  Remove any annotations in which the input
+        #  sequence has an N in it.
+        if data_dict['raw_input'].strip('N').count('N') != 0:
+            num_N += 1
+            continue
+        passed += 1
+
+        #  Remove excess information.
+        data_dict = {'seq_id': data_dict['seq_id'],
+               'v_gene': {'gene': data_dict['v_gene']['gene']},
+               'd_gene': {'gene': data_dict['d_gene']['gene']},
+               'j_gene': {'gene': data_dict['j_gene']['gene']},
+               'isotype': data_dict['isotype'],
+               'vdj_nt': data_dict['vdj_nt'],
+               'vdj_germ_nt': data_dict['vdj_germ_nt'],
+               'junc_nt': data_dict['junc_nt'],
+               'raw_input': data_dict['oriented_input'],
+               'junc_nt_breakdown': data_dict['junc_nt_breakdown'],
+               'exo_trimming': data_dict['exo_trimming']}
+        annotations.append(data_dict)
+
+    print('Loading abstar log:'
+          '\nLength_fail',len_fail,
+          '\nD_gene_fail',d_fail,
+          '\nN_filtered', num_N,
+          '\nCDR3_fail',cdr3_fail,
+          '\nabstar_pass', passed)
+
+    json_save(outfile, annotations)
 
 def load_abstar(abstar_file: str) -> dict:
     """Loads and performs preliminary filtering on abstar output.
@@ -357,13 +429,15 @@ def filter_after_error_correction(annotations: dict, annkey: str) -> None:
     print(annkey + '_num_shm_indels', num_shm_indels)
     print(annkey + '_bad_primer', bad_primer)
 
-def annotations_pipeline(infile: str) -> dict:
+def annotations_pipeline(infile: str, error_correct: bool = False) -> dict:
     """Loads abstar file and saves annotations after error correction and filtering.
 
     Parameters
     ----------
-    infile : (str)
+    infile : str
         Path to abstar file.
+    error_correct: bool
+        Optional bool to turn on error correction.
 
     Returns
     -------
@@ -376,8 +450,9 @@ def annotations_pipeline(infile: str) -> dict:
                     for seq_key in annotations[key]])
         print('initial_' + key, len(annotations[key]), abun)
 
-    run_error_correction(annotations, ['productive'])
-    run_error_correction(annotations, ['unproductive'])
+    if error_correct:
+        run_error_correction(annotations, ['productive'])
+        run_error_correction(annotations, ['unproductive'])
 
     del annotations['stop_in_cdr3']
     del annotations['other']
@@ -761,10 +836,18 @@ def main():
                     'make lineages, merge replicates in lineages,'
                     'get progenitor CDR3s; create csv to be used as input'
                     'for SONIA and expansion analysis.')
+    parser.add_argument('--filter_abstar', dest='filter_abstar', nargs=2,
+                        metavar=('PATH/TO/FOLDER/FILE', 'PATH/TO/OUTFILE'),
+                        help='Filters abstar output. '
+                        'Path to abstar output (.json), '
+                        'path to filtered annotations output (.json).')
     parser.add_argument('--annotations', dest='annotations_input', nargs=2,
                         metavar=('PATH/TO/FOLDER/FILE', 'PATH/TO/OUTFILE'),
                         help='path to abstar output (.json), '
                         'path for annotations output (.json)')
+    parser.add_argument('--error_correct',action='store_true', default=False,
+                        help='Turns on error correction algorithm '
+                        ' when processing the annotations.')
     parser.add_argument('--lineages', dest='lineages_input', nargs=2,
                         metavar=('PATH/TO/FOLDER/FILE', 'PATH/TO/OUTFILE'),
                         help='path to annotations output (.json), '
@@ -775,8 +858,13 @@ def main():
                         'path for SONIA input (.csv)')
     args = parser.parse_args()
 
+    if args.filter_abstar is not None:
+       filter_abstar(args.filter_abstar[0], args.filter_abstar[1])
+       return
+
     if args.annotations_input is not None:
-        annotations = annotations_pipeline(args.annotations_input[0])
+        annotations = annotations_pipeline(args.annotations_input[0],
+                                           args.error_correct)
         json_save(args.annotations_input[1], annotations)
     if args.lineages_input is not None:
         lineages = make_lineages(args.lineages_input[0])

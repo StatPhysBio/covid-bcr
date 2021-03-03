@@ -48,14 +48,16 @@ colors = {'Healthy':"#0072B2",
           'Mild': "#009E73",
           'Moderate':"#E69F00",
           "Severe": "#D55E00",
-          'Asymptomatic': "#CC79A7"}
+          'Asymptomatic': "#CC79A7",
+          'Briney/GRP': 'black'}
 
 #  Set lighter colors to distinguish from darker colors.
 lightercolors = {'Healthy': (144/255, 215/255, 255/255),
                  'Mild': (46/255, 255/255, 200/255),
                  'Moderate': (255/255, 212/255, 110/255),
                  "Severe": (255/255, 138/255, 47/255),
-                 'Asymptomatic': (255/255, 26/255, 255/255)}
+                 'Asymptomatic': (255/255, 26/255, 255/255),
+                 'Briney/GRP': 'white'}
 
 #  Function to round to n significant digits.
 round_to_n = lambda x, n: round(x, -int(floor(log10(x))) + (n - 1))
@@ -323,10 +325,16 @@ def cohort_bar(cohort_averages: dict, cohort_data: dict, observable: str,
     bars = []
 
     #  Sort the genes by descending usage in the healthy cohort.
-    sorted_genes = [gene
-                    for _,gene in sorted(zip(cohort_averages['Healthy'][observable][0],
-                                             cohort_averages['Healthy'][observable][-1]),
-                                              key=lambda pair: pair[0], reverse=True)]
+    if 'Briney/GRP' in cohort_averages:
+        sorted_genes = [gene
+                        for _,gene in sorted(zip(cohort_averages['Briney/GRP'][observable][0],
+                                                 cohort_averages['Briney/GRP'][observable][-1]),
+                                                  key=lambda pair: pair[0], reverse=True)]
+    else:
+        sorted_genes = [gene
+                        for _,gene in sorted(zip(cohort_averages['Healthy'][observable][0],
+                                                 cohort_averages['Healthy'][observable][-1]),
+                                                  key=lambda pair: pair[0], reverse=True)]
 
     #  Because there are so many V genes, plot only those which have at least
     #  1% average usage in at least one cohort.
@@ -373,7 +381,7 @@ def cohort_bar(cohort_averages: dict, cohort_data: dict, observable: str,
     middle_xticks = default_x + middle*width
     ax.set_xticks(middle_xticks)
     ax.set_xticklabels(xlabels, rotation=90, family='Arial')
-    ax.set_ylabel('PDF', fontname="Arial")
+    ax.set_ylabel('proportion of seqs', fontname="Arial")
 
     #  Plot the bars. 
     for i,severity in enumerate(cohort_averages):
@@ -443,7 +451,10 @@ def get_stats(in_files, rep_type='bulk', statstype='progenitors', geo=False, pse
         cohort_averages[key] = {}
 
     for patient in stats:
-        severity = CONST_DATA_DICT[patient]['severity']
+        try:
+            severity = CONST_DATA_DICT[patient]['severity']
+        except:
+            severity = 'Healthy'
         if str(severity) == 'nan':
             severity = 'Mild'
         for o in observables:
