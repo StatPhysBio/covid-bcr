@@ -489,3 +489,19 @@ def remove_N_buffer(sequence: str) -> str:
     """
 
     return seq.strip("N")
+
+def enumerate_axes(fig, axes_list, xoffset: float = -30, yoffset: float = 25,
+                   labels: list =None, loc: tuple = None, **kwargs):
+    import matplotlib.transforms as transforms
+    import string
+
+    offset = transforms.ScaledTranslation(xoffset/72.,yoffset/72, fig.dpi_scale_trans)
+
+    if labels is None:
+        labels = ['('+s+')' for s in string.ascii_uppercase]
+    if loc is None:
+        loc = (0, 1)
+
+    for ax, label in zip(axes_list, labels):
+        trans = ax.transAxes + offset
+        ax.annotate(label, xy=loc, xycoords=trans, **kwargs)

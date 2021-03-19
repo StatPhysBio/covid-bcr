@@ -54,7 +54,7 @@ def assemble_fasta_for_igor(infiles: list, outfile: str) -> None:
             sequences_for_igor.append(lineage_progenitor)
             header = "-".join(list(lin)+[patient])
             headers_for_igor.append(header)
-
+        print(len(headers_for_igor))
     create_new_fasta(outfile, headers_for_igor, sequences_for_igor)
 
 def main():

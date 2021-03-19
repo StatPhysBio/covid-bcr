@@ -243,7 +243,8 @@ def format_axes(in_ax: matplotlib.axes, labelsize: int = 12, ticksize: int = 10,
                       bottom=True, top=True, left=True, right=True,
                       color='grey')
     if not box:
-        in_ax.legend(fontsize=legendsize)
+        legend = in_ax.legend(fontsize=legendsize,edgecolor=(1, 1, 1, 0.), facecolor=(1,1,1,0))
+        legend.get_frame().set_alpha(0)
 
 def make_stats_plot(cohort_averages: dict, observable: str, in_ax: matplotlib.axes,
                     geo: bool = False, labelsize: int = 12, ticksize: int = 10,
@@ -283,13 +284,13 @@ def make_stats_plot(cohort_averages: dict, observable: str, in_ax: matplotlib.ax
                'dj ins': 'DJ insertions [nt]',
                'dj del': 'DJ deletions [nt]'}
     in_ax.set_xlabel(xlabels[observable],fontname="Arial")
-    in_ax.set_ylabel("PDF", family="Arial")
+    in_ax.set_ylabel("relative counts", family="Arial")
     format_axes(in_ax, labelsize=labelsize, ticksize=ticksize,
                 legendsize=legendsize, box=False)
 
 def cohort_bar(cohort_averages: dict, cohort_data: dict, observable: str,
                yaxis_upper: int = None, ax: matplotlib.axes = None, labelsize: int =12,
-               ticksize: int = 10, legendsize: int = 8) -> None:
+               ticksize: int = 10, legendsize: int = 8, markersize=15) -> None:
     """Plots either the V- or J-gene usages.
 
     Parameters
@@ -324,6 +325,11 @@ def cohort_bar(cohort_averages: dict, cohort_data: dict, observable: str,
     width = 1.0 / len(cohort_averages) - 0.02
     bars = []
 
+    if 'Asymptomatic' in cohort_averages:
+        ordering = ['Healthy', 'Mild', 'Moderate', 'Severe', 'Asymptomatic']
+    else:
+        ordering = sorted(cohort_averages.keys())
+
     #  Sort the genes by descending usage in the healthy cohort.
     if 'Briney/GRP' in cohort_averages:
         sorted_genes = [gene
@@ -354,8 +360,7 @@ def cohort_bar(cohort_averages: dict, cohort_data: dict, observable: str,
     xlabels = good_genes
     default_x = np.arange(0,len(good_genes),1)
     xs,ys = [], []
-
-    for i,severity in enumerate(cohort_averages):
+    for i,severity in enumerate(ordering):
         x = default_x + width*i
         xs.append(x)
         indices = [cohort_averages[severity][observable][-1].index(gene)
@@ -364,7 +369,7 @@ def cohort_bar(cohort_averages: dict, cohort_data: dict, observable: str,
         ys.append(y)
 
     if observable == 'v gene':
-        ax.set_xlim(-0.5, xs[0][-1] + 1.0)
+        ax.set_xlim(-0.3, xs[0][-1] + 1.0)
         if yaxis_upper is not None:
             ax.set_ylim(0, yaxis_upper)
         else:
@@ -381,17 +386,17 @@ def cohort_bar(cohort_averages: dict, cohort_data: dict, observable: str,
     middle_xticks = default_x + middle*width
     ax.set_xticks(middle_xticks)
     ax.set_xticklabels(xlabels, rotation=90, family='Arial')
-    ax.set_ylabel('proportion of seqs', fontname="Arial")
+    ax.set_ylabel('relative counts', fontname="Arial")
 
     #  Plot the bars. 
-    for i,severity in enumerate(cohort_averages):
+    for i,severity in enumerate(ordering):
         bar = ax.bar(xs[i], ys[i], width, color=colors[severity], label=severity)
         for d in cohort_data[severity][observable]:
             #  Plot the full distributions of values to get a better sense
             #  of variation within cohorts.
             for gidx,rect in enumerate(bar):
                 ax.scatter(xs[i][gidx], d[good_genes[gidx]], marker='.',
-                           color=lightercolors[severity], zorder=3, s=15,
+                           color=lightercolors[severity], zorder=3, s=markersize,
                            edgecolors='black', linewidths=0.3)
 
     format_axes(ax, labelsize=labelsize, ticksize=ticksize, legendsize=legendsize)
@@ -505,7 +510,7 @@ def get_stats(in_files, rep_type='bulk', statstype='progenitors', geo=False, pse
                                                                        observable, indict=True, geo=False)
     return cohort_data, cohort_averages
 
-def perform_anova(cohort_data: dict, observable: str, ax=None) -> None:
+def perform_anova(cohort_data: dict, observable: str, ax=None, comparison='Healthy') -> None:
     """Creates box plots and performs ANOVA on the means of each individual's statistic.
 
     Parameters
@@ -534,12 +539,12 @@ def perform_anova(cohort_data: dict, observable: str, ax=None) -> None:
             means[severity].append(np.mean(ind_data))
 
     for severity in means:
-        if severity == 'Healthy':
+        if severity == comparison:
             continue
-        f_val, p_val = f_oneway(means['Healthy'], means[severity])
+        f_val, p_val = f_oneway(means[comparison], means[severity])
         df_groups = 1
-        df_sample_size = len(means['Healthy']) + len(means[severity]) - 2
-        print('Healthy vs. ' + severity + ':',
+        df_sample_size = len(means[comparison]) + len(means[severity]) - 2
+        print(comparison + ' vs. ' + severity + ':',
               'F_{'+ str(df_groups) + ',' + str(df_sample_size) + '} =',
               str(round_to_n(f_val, 3)) + ',',
               'p-value =',
@@ -562,7 +567,7 @@ def perform_anova(cohort_data: dict, observable: str, ax=None) -> None:
     format_axes(ax, box=True)
     plt.show()
 
-def perform_ks2samp(cohort_data: dict, observable: str) -> None:
+def perform_ks2samp(cohort_data: dict, observable: str, comparison='Healthy') -> None:
     """Performs two-sample K–S test on pooled cohort data.
 
     Parameters
@@ -578,10 +583,10 @@ def perform_ks2samp(cohort_data: dict, observable: str) -> None:
     """
 
     for severity in cohort_data:
-        if severity == 'Healthy':
+        if severity == comparison:
             continue
         all_healthy = np.concatenate([ind_data
-                                      for ind_data in cohort_data['Healthy'][observable]])
+                                      for ind_data in cohort_data[comparison][observable]])
         single_cohort = np.concatenate([ind_data
                                         for ind_data in cohort_data[severity][observable]])
         ksstat,pval = ks_2samp(all_healthy, single_cohort)
